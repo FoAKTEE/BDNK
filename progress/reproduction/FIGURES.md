@@ -21,7 +21,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 |---|---|---|
 | steady_state_fig / shock_comp | steady planar shock | ✅ (engine) conformal_evolution.png; 🔨 exact overlay |
 | Conv_plot / kh_conv | convergence | ✅ (engine self-conv); 🔨 exact |
-| CC_plot | characteristic speeds | 🔨 |
+| CC_plot | WENO5 mixed-deriv commutator ∫∫|∂x∂yξ−∂y∂xξ| | 🔨→✅mechanism (PRELIMINARY: 2D-surrogate, no 2D ref code; ε_W=1e15 machine-floor + decay matched) |
 | eta1_step / kh_vs_eta / rotor_eta_t / Tab_cons | step, Kelvin-Helmholtz, rotor (2D), conservation | 🏗 (2D evolution) |
 
 ## arXiv:2209.09265 — PMP ideal-gas BDNK
