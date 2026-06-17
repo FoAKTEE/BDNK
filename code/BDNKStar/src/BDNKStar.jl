@@ -34,7 +34,7 @@ using .Recovery
 export Numerics, Units, EquationOfState, Transport, Causality, Recovery
 # EOS
 export AbstractEOS, BarotropicEOS, GeneralEOS,
-       PolytropeEnergy, IdealGas, TabulatedBarotrope, tabulate,
+       PolytropeEnergy, ShumPolytrope, IdealGas, TabulatedBarotrope, tabulate,
        pressure, sound_speed2, energy_from_pressure,
        dpdrho_eps, dpdeps_rho, specific_enthalpy, total_energy_density,
        temperature, is_thermodynamically_valid, apply_floor

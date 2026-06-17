@@ -29,7 +29,7 @@ module EquationOfState
 using ..Numerics
 
 export AbstractEOS, BarotropicEOS, GeneralEOS,
-       PolytropeEnergy, IdealGas, TabulatedBarotrope, tabulate,
+       PolytropeEnergy, ShumPolytrope, IdealGas, TabulatedBarotrope, tabulate,
        pressure, sound_speed2, energy_from_pressure,
        dpdrho_eps, dpdeps_rho, specific_enthalpy, total_energy_density,
        temperature, is_thermodynamically_valid, apply_floor
@@ -50,6 +50,22 @@ end
 # cs² = dp/de = (1 + 1/n) κ e^{1/n} = (1 + 1/n) p/e
 @inline sound_speed2(eos::PolytropeEnergy, e::Real) = (1 + 1/eos.n) * eos.κ * e^(1/eos.n)
 @inline energy_from_pressure(eos::PolytropeEnergy, p::Real) = (p / eos.κ)^(eos.n/(eos.n + 1))
+
+# ---------------------------------------------------------------------------
+# Shum cold Γ=2 polytrope  p = κ ρ²  in energy-density form (the STAGE-1C target
+# EOS, Shum et al. 2509.15303 eq.53). With e = ρ + p (Γ=2 ⇒ e = ρ + p/(Γ-1)):
+#   p(e)   = [1 + 2κe - √(1 + 4κe)] / (2κ)
+#   cs²(e) = dp/de = 1 - 1/√(1 + 4κe)          (→0 as e→0, →1 as e→∞: causal)
+#   e(p)   = p + √(p/κ)                          (ρ = √(p/κ))
+# ---------------------------------------------------------------------------
+struct ShumPolytrope <: BarotropicEOS
+    κ::Float64
+end
+
+@inline pressure(eos::ShumPolytrope, e::Real) =
+    (1 + 2*eos.κ*e - sqrt(1 + 4*eos.κ*e)) / (2*eos.κ)
+@inline sound_speed2(eos::ShumPolytrope, e::Real) = 1 - 1/sqrt(1 + 4*eos.κ*e)
+@inline energy_from_pressure(eos::ShumPolytrope, p::Real) = p + sqrt(p/eos.κ)
 
 # ---------------------------------------------------------------------------
 # Γ-law ideal gas  p = (Γ-1) ρ ϵ   (finite temperature; BDNK ideal-gas micro-

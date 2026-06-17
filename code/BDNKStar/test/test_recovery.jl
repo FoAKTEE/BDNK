@@ -18,6 +18,23 @@ using BDNKStar
     @info "barotropic round-trip max error" maxerr
 end
 
+@testset "Round-trip: Shum Γ=2 polytrope (1C target EOS, <= 1e-10)" begin
+    shum = ShumPolytrope(100.0)          # Shum et al. 2509.15303 eq.53, κ=100
+    maxerr = 0.0
+    for e in (1e-4, 5e-4, 1e-3, 3e-3), v in (-0.5, 0.0, 0.4)
+        # EOS self-consistency: cs²∈(0,1), p(e(p))=p
+        @test 0 < sound_speed2(shum, e) < 1
+        p = pressure(shum, e)
+        @test isapprox(energy_from_pressure(shum, p), e; rtol=1e-12)
+        E, S, _ = prim2cons_barotropic(shum, e, v)
+        e2, v2, _, info = cons2prim_barotropic(shum, E, S)
+        @test info.converged
+        maxerr = max(maxerr, max(abs(e2-e)/e, abs(v2-v)))
+    end
+    @test maxerr ≤ 1e-10
+    @info "Shum Γ=2 round-trip max error" maxerr
+end
+
 @testset "Round-trip: barotropic matches conformal closed form (p=e/3)" begin
     # cs² = 1/3 ⇒ PolytropeEnergy with n→∞ is not p=e/3; use κ s.t. p=e/3 at a
     # point via the closed-form check on the inversion algebra directly.
