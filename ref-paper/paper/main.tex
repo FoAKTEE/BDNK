@@ -1,0 +1,61 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+
+\title{BDNK Neutron Star}
+\author{Nicolas Fernandes}
+\date{June 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+The setting for my science question is a post-merger, high-mass neutron star remnant where equilibrium has not yet been established. 
+
+Non-equilibrium effects should be important at that stage, when we expect there to exist shear layers and dynamical pulsations. Therefore, it is important to quantify the effects of viscosity (Bulk and Shear) on the evolution of this hypermassive remnant.
+
+We can break the project down into stages:
+
+(1) Reproduce the known results:
+
+* Analytical results:
+  * “Neutron Star Radial Perturbations for Causal, Viscous, Relativistic Fluids” by Daniel A. Caballero and Nicolas Yunes (2025)
+  * “Axial Oscillations of Viscous Neutron Stars” by Sofía Bussières, Jaime Redondo-Yuste, José Javier Ortega Gómez , and Vitor Cardoso (2026)
+* Numerical result:
+  * “Neutron star evolution with the Bemfica-Disconzi-Noronha-Kovtun viscous hydrodynamics framework” by Harry L. H. Shum, Fernando Abalos, Yago Bea, Miguel Bezares, Pau Figueras, and Carlos Palenzuela (2026)
+
+(2) 1+1d BDNK spherically symmetric coupled to GR with number density, heat conduction and realistic EOS (First BDNK viscous spherical collapse, possibly first causal spherical collapse)
+
+  Problems I anticipate:
+
+    Realistic EOS primitive recovery is not done. (Polytropic and Ideal EOS are done)          
+
+    If we do the spherical collapse, ensuring that shock-capturing numerical methods are used will be important.
+
+    Disentangle frame effects from actual unstable modes (Do computation in multiple frames)
+
+    All of the NR things like AH finder, the actual coupling to GR (could do a similar thing they do with IS theory)
+
+  Questions I want to address: 
+
+    1. Do the non-equilibrium effects fully coupled to GR change the stability of the radial modes?
+    2. How does the viscosity affect the spherical collapse? 
+
+(3) 3+1d BDNK spherically symmetric code Cowling approximation 
+
+  Problems I anticipate: 
+
+    Polytropic primitive variable recovery is not done.
+
+  Questions I want to address:
+
+    i.  Are there new modes that appear due to nonequilibrium effects
+
+    ii. Stability modified?
+
+    iii. How are the non-radial modes excited?
+
+
+
+\end{document}

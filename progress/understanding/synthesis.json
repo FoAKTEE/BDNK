@@ -1,0 +1,480 @@
+{
+ "bdnk_formalism": "CANONICAL GENERAL-FRAME BDNK (mostly-plus (-,+,+,+), u^a u_a=-1, c=G=1, 8π in TOV). Kovtun (1907.08191) decomposition in the Bemfica-Disconzi-Noronha working frame (2009.11388) with particle current J^a=n u^a (adopted by every numerical source):\n\n  T^{ab} = (ε+A) u^a u^b + (P+Π) Δ^{ab} + Q^a u^b + Q^b u^a − 2η σ^{ab}\n  J^a    = n u^a,   Δ^{ab}=g^{ab}+u^a u^b,   ρ≡ε+P,   c_s²≡(∂P/∂ε)_s̄ (=γP/ρ ideal gas).\n\nε is the frame-defining equilibrium energy density (NOT E=u_a u_b T^{ab}); P=P(ε,n); n baryon number; u^a frame 4-velocity.\n\nCONSTITUTIVE CORRECTIONS (single canonical set; all sources map onto it):\n  A   = τ_ε [ u^c∇_c ε + ρ ∇_c u^c ]\n  Π   = −ζ ∇_c u^c + τ_P [ u^c∇_c ε + ρ ∇_c u^c ]\n  Q^a = τ_Q ρ u^c∇_c u^a + β_ε Δ^{ac}∇_c ε + β_n Δ^{ac}∇_c n\n  σ^{ab} = (1/2)(Δ^{ac}Δ^{bd}+Δ^{ad}Δ^{bc}−(2/3)Δ^{ab}Δ^{cd}) ∇_c u_d   (traceless, transverse).\n\n8 frame coefficients {τ_ε,τ_P,τ_Q,η,ζ,σ,β_ε,β_n}; these are FIRST-ORDER (BDNK-frame) coefficients, NOT Israel-Stewart relaxation times — there is NO extra evolution eqn for A,Π,Q. Heat-flux coeffs fixed by EOS+conductivity (BDN eq1062 / PMP eq18-19):\n  β_ε = τ_Q(∂P/∂ε)_n + σ(Tρ/n)(∂(μ/T)/∂ε)_n,   β_n = τ_Q(∂P/∂n)_ε + σ(Tρ/n)(∂(μ/T)/∂n)_ε.\nBAROTROPIC/single-fluid reduction (what Stages 1A/1B/1C actually use; Redondo-Yuste 2411.16841, Bussières 2604.13208, Shum 2509.15303): drop n,σ so Q^a=τ_Q[ρ u^c∇_c u^a + c_s² Δ^{ac}∇_c ε], i.e. β_ε=τ_Q c_s², β_n=0.\n\nIDEAL-GAS gamma-law microphysics (PMP 2209.09265 eq25-37, STEP-0/Stage-2): P=(Γ−1)mn e, ε=mn(1+e), c_s²=ΓP/ρ; (∂P/∂ε)_n=Γ−1, (∂P/∂n)_ε=−(Γ−1)m; κ_ε=−(Γ−1)ερ²/(n²P), κ_n=(ρ/(n²P))[(Γ−1)ε²+P²], κ_s=κ_ε+κ_n; ω≡κ_s/κ_ε=mnP/(ερ), α≡(Γ−1)/c_s².\n\nNOTATION CROSS-WALK: Kovtun E-ε/π_i/θ_i ↔ BDN A/Π/Q ↔ PMP&C-code A/Π/Q (compute_A,Qx,m2sxx) ↔ Shum A/Π/Q^μ. Relaxation: Kovtun(ε1,π1,θ)↔BDN/PMP/Shum(τ_ε,τ_P,τ_Q). Frame freedom = Kovtun invariants f_i=π_i−(∂p/∂ε)ε_i−(∂p/∂n)ν_i, ℓ_i=γ_i−(n/ρ)θ_i, plus η; everything else is a frame choice. Conformal luminal frame (C-code/PMP): (χ₀,λ₀)=(25/4,25/7)η₀ via τ_ε=(3/4ε)χ₀ e^{3/4}, τ_Q=(3/4ε)λ₀ e^{3/4}, τ_P=τ_ε/3, ζ=0, β_ε=τ_Q/3, β_n=0, c_s=1/√3.",
+ "primitive_recovery_spec": "GRADIENT-FROZEN SHIFTED (LINEAR-)NEWTON + PERFECT-FLUID FALLBACK. Mirrors solver.c compute_xiD/compute_uxD; PMP 2209.09265 §IV / 2201.12317 prove the solve is LINEAR in the time-derivative primitives so it always inverts for physical states. NeutronStarOscillations.jl needs this ONLY for nonlinear Stages 1C/2 (its linear stages have identity con2prim), but build+unit-test the module at STEP 0 against the conformal closed form.\n\nVARIABLES:\n - Conserved (flux-evolved, densitized √γ in curved space): q=(T^{tt}, T^{ti}, N^t=γn).\n - p0 (trivially evolved primitives): ξ=ln ε (evolve log for positivity, per C-code/PMP), u^i, [n].\n - p1 (reconstructed each substage): ξ̇, u̇^i, [ṅ] — the time-derivative primitives the constitutive relations need.\n - Frozen spatial gradients: ∂_x ξ, ∂_x u^i (+ curved spatial covariant pieces), computed once per substage and held FIXED during the inversion.\n\nPER-SUBSTAGE ALGORITHM:\n 1. Build perfect-fluid (no-time-deriv) stress with FROZEN spatial grads: T00_PF=T^{tt}|_{ξ̇=u̇=0}, T0i_PF=T^{ti}|_{ξ̇=u̇=0}. Conformal closed forms = solver.c TttPF/TtxPF; general EOS = §1.2 assembly with ξ̇,u̇→0.\n 2. SHIFT/deficit normalized by leading viscosity scale η₀: d_tt=(T00_PF−T00)/η₀, d_ti=(T0i_PF−T0i)/η₀. If η₀==0 set deficits 0 (avoid NaN).\n 3. FALLBACK test: if |η₀·d_tt|<Δ_visc AND |η₀·d_ti|<Δ_visc → viscous correction below numerical-viscosity floor: set d=0, do PF recovery for p0 directly (do NOT use trivial evolution), VISC=0. Conformal PF closed form: ε=−T00+√(4 T00²−3 T01²), u^x=3 T01/√((3T00+ε)²−(3T01)²). General EOS PF fallback = genuine 1D Newton root-find (see step 6). Else VISC=1.\n 4. LINEAR BDNK solve: T^{ab}=q0(p0)+η₀[J(p0)·p1+b(p0,frozen grads)]. The 2×2 (3×3 with n) Jacobian J=∂(T00,T0i)/∂(ξ̇,u̇^i) is analytic. Solve p1=J⁻¹·[(1/η₀)(q−q0)−b] = SHIFTED form J⁻¹·d + p1_PF, where p1_PF = pure spatial-advection part (the surviving zero-dissipation terms = first terms of C-code xiD/uxD).\n 5. Conformal explicit (verbatim-structure): common denominator DEN=e^{0.75}(9 ch l + 12 ch(l−1)U² + 4(ch(l−3)−l)U⁴), ch=χ₀/η₀=6.25, l=λ₀/η₀=25/7, U=u^x; xiD=−2(2u_xP+U(1+U²)ξ_P)/(√(1+U²)(3+2U²)) −4√(1+U²)(3l+(−4+4ch+6l)U²)d_tt/DEN +4(3(ch+2l)U+(−4+4ch+6l)U³)d_tx/DEN; uxD=−√(1+U²)(8U u_xP+3ξ_P)/(12+8U²) +3U√(1+U²)(4ch+l+2(2ch+l)U²)d_tt/DEN −3(1+U²)(3ch+2(2ch+l)U²)d_tx/DEN. det J = DEN/η₀ → DEN→0 is the singular case that forces fallback.\n 6. GENERAL-EOS Jacobian: build J⁻¹ as explicit 2×2 inverse (symbolic via Mathematica on the EOS, or finite-difference assembled). The 'Newton' here is a SINGLE Newton step on a LINEAR system (one solve, no loop) because T^{ab} is exactly linear in p1. The ONLY iterative Newton is the PF FALLBACK for general EOS: 1D Newton à la Kastaun (Chabanov-Rezzolla 2311.13027 f(z)=z−r/h'(z)), bracketed/clamped, analytic dP/dε=c_s², reltol 1e-12, ≤50 iters; on non-convergence → atmosphere reset (1C/2).\n 7. RETURN p1; trivially integrate p0: ξ+=dt·ξ̇, u^i+=dt·u̇^i (MoL substage). Ghost cells reset after every stage.\n\nGATING: Δ_visc (=TOL) default OFF (TOL<0 → fallback never fires → always BDNK solve) for benchmarks; only enable + lower with resolution in production.",
+ "causality_monitor": "POINTWISE STEP-0 CAUSALITY FLAG (per cell, every substage): raise flag unless ALL hold.\n\n(I) FULL GENERAL-FRAME BDN (2009.11388 Thm I / PMP eq20). Assumption (A1): ρ,τ_ε,τ_Q,τ_P>0 and η,ζ,σ≥0. Define A=ρτ_ε τ_Q; B=−τ_ε(ρc_s²τ_Q+ζ+4η/3+σκ_s)−ρτ_P τ_Q; C=τ_P(ρc_s²τ_Q+σκ_s)−β_ε(ζ+4η/3); D=ρc_s²(τ_ε+τ_Q)+ζ+4η/3+σκ_ε; E=σ((∂P/∂ε)_n κ_s−c_s²κ_ε). CAUSALITY (nec.&suff.): (a) ρτ_Q>η; (b) B²≥4AC≥0; (d) 2A>−B≥0; (e) A+σκ_s τ_P>−B−C. LINEAR STABILITY (strict, η>0): the five stabA1..stabE inequalities of BDN Sec VII in (D,E,B,C) — use reduced-hat form (frame notebook In[18]) once a frame is fixed.\n\n(II) IDEAL-GAS / FRAME-ANSATZ HEADLINE (PMP eq44/71): σ̂≤1/3 (stability); τ̂ ≥ [(Γ−1)(2−c_s²)+c_s²]/(1−c_s²) (causality; use > to exclude c₊=1). 2nd-law box: 0<c_s²<1, α≥1, 0<ω<3−2√2≈0.2. Caveat c_s²→1 ⇒ τ̂→∞.\n\n(III) SHUM SPHERICAL-COWLING FRAME (2509.15303 eq67-71), params (ŝ,â,q̂)+(η̂,ζ̂), V̂=(4/3)η̂+ζ̂: c₀=c_s√(q̂η̂/(âV̂)); c±=c_s√{[â(1+ŝ)+q̂±√(q̂²+â²(4q̂+(ŝ−1)²)+2âq̂(1+ŝ))]/(2â)}. Well-posedness+stability: 0<q̂<ŝ. Causality: q̂<[(1−c_s²)/c_s²][(1−ŝc_s²)/(c_s²+1/â)] AND ŝ<1/c_s². (Production frame (1,1,0.999).)\n\n(IV) NeutronStarOscillations.jl RADIAL check (its dimensionless τ convention; keep separate): c²±=(Λ1±√(Λ1²−Λ0))/Λ2, Λ0=4L⁴(3ζ+4η)⁴(τ_P−1)τ_Q²τ_ε(p+ε)²c_s⁴/81, Λ1=L²(3ζ+4η)²(τ_ε+τ_Q(τ_P+τ_ε))(p+ε)c_s²/9, Λ2=2L²(3ζ+4η)²τ_Q τ_ε(p+ε)/9. Require τ_P≥1; τ_P==1: c_s²(0)≤τ_Q τ_ε/(τ_Q+τ_ε+τ_Q τ_ε); τ_P>1: c_s²(0)≤(τ_ε+τ_Q(τ_P+τ_ε)−√(−4(τ_P−1)τ_Q²τ_ε+(τ_ε+τ_Q(τ_P+τ_ε))²))/(2(τ_P−1)τ_Q); τ_P<1⇒acausal.\n\n(V) CONFORMAL luminal frame: (χ₀,λ₀)=(25/4,25/7)η₀ ⇒ all char speeds =c (a=1 KT); satisfies BDN conditions automatically.\n\nONE-LINE FLAG: raise unless (I a,b,d,e) pointwise AND active-frame reduced bound (II)/(III)/(IV) AND (for heat-conducting runs) c_s²−c_n²≥0.",
+ "heat_conduction_criterion": "CABALLERO-YUNES heat-conduction radial-stability criterion (2506.09149), common to Eckart/BDNK/MIS. Define two sound speeds: c_s²≡(∂p/∂ε)_s (adiabatic) and c_n²≡(∂p/∂ε)_n (at fixed baryon number). The heat operator 𝔾 enters the first-order complex frequency shift through Y[φ]=−(κ T(ε+p)/n) ∂_r[ ((ε+p)/(nT))(c_s²−c_n²) e^{−Φ} ∂_r φ / r² ]. NECESSARY stability criterion: c_s² − c_n² ≥ 0 pointwise over the star (adiabatic sound speed ≥ fixed-n sound speed). If c_n²>c_s² anywhere, heat conduction can drive a radial instability. Precise statement: the eigenfunction-weighted integral ⟨φ_j^{(0)}|𝔾|φ_j^{(0)}⟩ must be non-destabilizing (stability ⇔ Im(i ω_j^{(1)})<0 with ω_j^{(1)}=(i/2)⟨φ|𝔽|φ⟩/⟨φ|φ⟩+(i/2)(1/ω_j^{(0)2})⟨φ|𝔾|φ⟩/⟨φ|φ⟩); local c_s²≥c_n² guarantees it. The bulk+shear operator 𝔽=−∂_r[(ζ+4η/3)e^{Λ−2Φ}∂_rφ/r²]+4ηe^{Λ−2Φ}(Λ'−2Φ')φ/r³−4(∂_rη)e^{Λ−2Φ}φ/r³ (Eq.64-65) is positive-definite ⇒ UNCONDITIONAL radial stability to bulk and shear for any ζ,η. STAGE-1A implementation: solve TOV → build Chandrasekhar W,P,Q (W=e^{3Λ−Φ}(ε+p)/r², P=e^{Λ−3Φ}(ε+p)c_s²/r², Q from Eq.40c) → solve ideal Sturm-Liouville eigenproblem L0 Ξ=ω²Ξ for ω_j^{(0)2},φ_j^{(0)} → evaluate 𝔽,𝔾 matrix elements → check c_s²−c_n²≥0; construct a toy EOS with a c_n²>c_s² region to reproduce the conditional instability.",
+ "benchmark_table": [
+  {
+   "stage": "STEP0",
+   "quantity": "Polytrope EOS round-trip p=κε^γ, ε=(p/κ)^{1/γ}, c_s²=γκε^{γ-1}=dp/dε",
+   "target_value": "exact inverse + c_s² matches d2p/dε2 chain rule; γ=2, κ=100",
+   "tolerance": "machine (1e-14 rel)",
+   "source": "jl-NeutronStarOscillations EOS closures (NeutronStarOscillations.jl:164-171)"
+  },
+  {
+   "stage": "STEP0",
+   "quantity": "Ideal-gas microphysics derivatives (∂P/∂ε)_n=Γ−1, (∂P/∂n)_ε=−(Γ−1)m, c_s²=ΓP/ρ, κ_ε,κ_n",
+   "target_value": "Γ=4/3 closed forms eq31-37",
+   "tolerance": "machine",
+   "source": "arxiv-2209.09265 eq31-37"
+  },
+  {
+   "stage": "STEP0",
+   "quantity": "Conformal characteristic speeds with luminal frame (χ₀,λ₀)=(25/4,25/7)η₀",
+   "target_value": "c± = 1 exactly (luminal)",
+   "tolerance": "1e-12",
+   "source": "arxiv-2201.12317 / c-1D_conformal_bdnk parameters.h"
+  },
+  {
+   "stage": "STEP0",
+   "quantity": "Radial Λ0,Λ1,Λ2 and c_s²_max2 at center for (η=ζ=1e-2,τ_ε=15,τ_P=1.5,τ_Q=20,L=1)",
+   "target_value": "reproduce closed forms + causal-frame verdict TRUE",
+   "tolerance": "1e-10 rel",
+   "source": "jl-NeutronStarOscillations BDNKCharacteristicSpeeds.jl + check_causal_frame"
+  },
+  {
+   "stage": "STEP0",
+   "quantity": "BDNK linear recovery vs conformal PF closed form in inviscid limit",
+   "target_value": "ε=−T00+√(4T00²−3T01²); ux=3T01/√((3T00+ε)²−(3T01)²)",
+   "tolerance": "1e-10",
+   "source": "c-1D_conformal_bdnk solver.c:435-437 / arxiv-2201.12317 eq:PF_pvr"
+  },
+  {
+   "stage": "STEP0",
+   "quantity": "Frame-constraint headline bounds σ̂≤1/3 (stability), τ̂≥[(Γ−1)(2−c_s²)+c_s²]/(1−c_s²) (causality)",
+   "target_value": "all reduced rStabA1..rStabE>0 and causA..causD≥0 under assump",
+   "tolerance": "symbolic TRUE",
+   "source": "nb-BDNK_frame_constraints In[18],In[67] / arxiv-2209.09265 eq44"
+  },
+  {
+   "stage": "1A",
+   "quantity": "TOV background M(R), p(r), ν(r) for n=1, κ=100, ε_c=5.5e15 g/cm³",
+   "target_value": "RK4 and implicit-CN solvers agree; exterior e^ν=1−2M/R",
+   "tolerance": "1e-6 rel (cross-solver)",
+   "source": "jl-NeutronStarOscillations TOV.jl Explicit/Implicit"
+  },
+  {
+   "stage": "1A",
+   "quantity": "Ideal-fluid radial pulsation eigenvalues (first 5 ω² in kHz²) via matrix method + shooting BC Δp=0",
+   "target_value": "first 5 ω² eigenvalues, refined to surface BC",
+   "tolerance": "1e-4 (matrix→shooting consistency)",
+   "source": "jl-NeutronStarOscillations FrequencyDomain.jl PerfectFluidCowling"
+  },
+  {
+   "stage": "1A",
+   "quantity": "Heat-conduction stability criterion c_s²−c_n²≥0; toy EOS with c_n²>c_s² region",
+   "target_value": "stable when c_s²≥c_n²; instability appears in toy unstable region",
+   "tolerance": "sign of Im(iω^{(1)})",
+   "source": "arxiv-2506.09149 eq62-65"
+  },
+  {
+   "stage": "1B",
+   "quantity": "EOS1 polytrope κ=100 km², n=1 → M, R at ρ_c=3e15 g/cm³",
+   "target_value": "M=1.27 M☉, R=8.86 km",
+   "tolerance": "1e-2 (1%)",
+   "source": "arxiv-2604.13208 EOS1"
+  },
+  {
+   "stage": "1B",
+   "quantity": "ℓ=2 w-mode (f,τ) frame A1, EOS1, η_c=3e29",
+   "target_value": "(10.4884 kHz, 29.5870 µs)",
+   "tolerance": "1e-3 rel",
+   "source": "arxiv-2604.13208 Table 2"
+  },
+  {
+   "stage": "1B",
+   "quantity": "ℓ=2 w-mode (f,τ) frame A1, EOS1, η_c=1e31",
+   "target_value": "(10.0898 kHz, 30.8857 µs)",
+   "tolerance": "1e-3 rel",
+   "source": "arxiv-2604.13208 Table 2"
+  },
+  {
+   "stage": "1B",
+   "quantity": "η-mode family inviscid limit and avoided crossing",
+   "target_value": "Im ω → 0 as η_c→0; avoided-crossing onset η_c≳1e30 g cm⁻¹ s⁻¹",
+   "tolerance": "qualitative (trajectory) + onset within factor 2",
+   "source": "arxiv-2604.13208 Fig.2"
+  },
+  {
+   "stage": "1B",
+   "quantity": "Compactness scaling of viscous shift",
+   "target_value": "Δf/f₀≈C_f−1.8(M/R); Δτ/τ₀≈C_τ−5.0(M/R)",
+   "tolerance": "slope within 10%",
+   "source": "arxiv-2604.13208 eq41"
+  },
+  {
+   "stage": "1C",
+   "quantity": "TOV background, Shum EOS eq53 (Γ=2,κ=100), ρ0,c=0.00128 M☉⁻²",
+   "target_value": "M_T=1.4 M☉",
+   "tolerance": "1e-3 rel",
+   "source": "arxiv-2509.15303"
+  },
+  {
+   "stage": "1C",
+   "quantity": "QNM frequency spectrum (perfect fluid + smallSB-F2)",
+   "target_value": "F=2.69 kHz, H1≈4.55 kHz, H2≈6.36 kHz; highB-F9 F=2.67 kHz",
+   "tolerance": "1e-2 (1%)",
+   "source": "arxiv-2509.15303 Table 1"
+  },
+  {
+   "stage": "1C",
+   "quantity": "Fundamental-mode decay rates 1/τ (M☉⁻¹)",
+   "target_value": "smallSB-F2=0.00157, medS-F2=0.00150, highB-F9=0.00215, medSB-F9=0.00182; ω_nl≈0.0834",
+   "tolerance": "5e-2 rel (resolution-dependent fit)",
+   "source": "arxiv-2509.15303 Table 2"
+  },
+  {
+   "stage": "1C",
+   "quantity": "Empirical stable-parameter window",
+   "target_value": "stable to t_f=8000 M☉ iff τ_ε=(4/3)η̂+ζ̂ ≲ 0.1 (frame ŝ=1,â=1,q̂=0.999)",
+   "tolerance": "qualitative (stable/unstable boundary)",
+   "source": "arxiv-2509.15303 Sec III.1"
+  },
+  {
+   "stage": "2",
+   "quantity": "Bjorken-flow ODE 4th-order convergence (τ=1→20, n0=0.1, Γ=4/3)",
+   "target_value": "Q_N→16 (RK4)",
+   "tolerance": "within 5% of 16 at N=2^11..2^13",
+   "source": "arxiv-2209.09265 eq50"
+  },
+  {
+   "stage": "2",
+   "quantity": "1D steady planar shock (e_L=1, v_L=0.8, η₀=0.2, erf width 10)",
+   "target_value": "e_R=4.4074, v_R=0.41667; stationary smooth profile",
+   "tolerance": "1e-2 (RH) / qualitative profile",
+   "source": "arxiv-2201.12317 eq:steady_state_ID + Rankine-Hugoniot"
+  },
+  {
+   "stage": "2",
+   "quantity": "PDE WENO5/Heun convergence order",
+   "target_value": "Q_N→4 (2nd order) until boundary interaction",
+   "tolerance": "within 10% of 4",
+   "source": "arxiv-2209.09265 / arxiv-2201.12317"
+  },
+  {
+   "stage": "2",
+   "quantity": "IS-contrast bulk-viscous migration of unstable TOV (ρ_c=4.94e15 g/cm³, M=1.447 M☉)",
+   "target_value": "NO BH collapse; less compact asymptotic state; shock stalls ~60 km at highest ζ",
+   "tolerance": "qualitative outcome",
+   "source": "arxiv-2311.13027 Sec III.2 (IS baseline, BDNK-vs-IS contrast)"
+  }
+ ],
+ "dag_nodes": [
+  {
+   "node_id": "step0.eos",
+   "summary": "Shared EOS module: cold polytrope p=κε^γ + Shum analytic p(ε)=[1+2εκ−√(1+4εκ)]/(2κ) + ideal gas; provide ε(p),p(ε),c_s²=dp/dε,d²p/dε², c_n², plus ideal-gas (∂P/∂ε)_n,(∂P/∂n)_ε,κ_ε,κ_n.",
+   "status": "blocking",
+   "predecessors": [],
+   "stage": "STEP0",
+   "domain": "symbolic",
+   "gate": "EOS round-trip exact (machine) and c_s² matches dp/dε; ideal-gas derivatives match eq31-37",
+   "equation_labels": [
+    "EOS polytrope",
+    "Ideal-gas microphysics (eq.31-37)",
+    "EOS p(eps), Eq. 53",
+    "Sound speeds (Eq.26,27)"
+   ]
+  },
+  {
+   "node_id": "step0.con2prim_ideal",
+   "summary": "Perfect-fluid conservative→primitive recovery: conformal closed form ε=−T00+√(4T00²−3T01²) plus general-EOS 1D Newton (Kastaun-style f(z)=z−r/h'(z)) with bracketing/clamping and atmosphere reset.",
+   "status": "blocking",
+   "predecessors": [
+    "step0.eos"
+   ],
+   "stage": "STEP0",
+   "domain": "numerical",
+   "gate": "Conformal PF recovery exact; general-EOS Newton converges to 1e-12 on physical-state battery",
+   "equation_labels": [
+    "PF cons->prim (solver.c:435-437, conformal)",
+    "Eq.23 primed"
+   ]
+  },
+  {
+   "node_id": "step0.causality",
+   "summary": "Causality/stability monitor: full BDN Thm-I (a,b,d,e), reduced-hat stability, ideal-gas headline σ̂≤1/3 & τ̂ bound, Shum c0/c± and 0<q̂<ŝ, NSO radial Λ0/Λ1/Λ2 & cs²_max, plus Caballero-Yunes c_s²−c_n²≥0.",
+   "status": "blocking",
+   "predecessors": [
+    "step0.eos"
+   ],
+   "stage": "STEP0",
+   "domain": "proof",
+   "gate": "Reproduce Λ0,Λ1,Λ2 & cs²_max2 for the (η=ζ=1e-2,τ_ε=15,τ_P=1.5,τ_Q=20) case; frame notebook checks return TRUE",
+   "equation_labels": [
+    "BDNK characteristic speeds",
+    "Causality bounds",
+    "Simplified constraints (eq.44)",
+    "causality (A1)+(a) (1171,1179)",
+    "Well-posedness/stability, Eq. 69",
+    "Causality, Eqs. 70-71"
+   ]
+  },
+  {
+   "node_id": "step0.bdnk_recovery",
+   "summary": "BDNK gradient-frozen shifted (linear-)Newton primitive-time-derivative inversion with PF fallback gated by Δ_visc; conformal closed form first, then general-EOS analytic/numeric 2×2 Jacobian J⁻¹.",
+   "status": "future",
+   "predecessors": [
+    "step0.con2prim_ideal",
+    "step0.causality"
+   ],
+   "stage": "STEP0",
+   "domain": "numerical",
+   "gate": "BDNK linear solve reproduces conformal compute_xiD/uxD; matches PF recovery in inviscid limit to 1e-10",
+   "equation_labels": [
+    "compute_xiD return (solver.c:447)",
+    "compute_uxD return (solver.c:491)",
+    "prim-recovery denominator DEN",
+    "Linear BDNK primitive recovery",
+    "Adaptive shifted recovery",
+    "Relaxation structure / con2prim time-deriv (eq.49,55)"
+   ]
+  },
+  {
+   "node_id": "s1a.tov_background",
+   "summary": "TOV background integrator (RK4 + implicit Crank-Nicholson cross-check) giving m(r),ν(r),p(r),ε(r); spline-interpolated to computational grid; exterior ν→log(1−2M/R).",
+   "status": "future",
+   "predecessors": [
+    "step0.eos"
+   ],
+   "stage": "1A",
+   "domain": "numerical",
+   "gate": "M(R) for n=1,κ=100,ε_c=5.5e15 g/cm³ agrees across both solvers to 1e-6; exterior e^ν matches",
+   "equation_labels": [
+    "TOV (geometrized, c=G=1)",
+    "TOV (Eq.32)"
+   ]
+  },
+  {
+   "node_id": "s1a.radial_eig",
+   "summary": "Radial (Cowling) linear eigensolver: Chandrasekhar Sturm-Liouville W,P,Q ideal modes via matrix method, refined by frequency-domain shooting to surface BC Δp=0; then BDNK time-domain (CN, LU-once) for viscous radial modes.",
+   "status": "future",
+   "predecessors": [
+    "s1a.tov_background",
+    "step0.causality"
+   ],
+   "stage": "1A",
+   "domain": "numerical",
+   "gate": "First 5 ω² eigenvalues (matrix↔shooting consistent to 1e-4); BDNK Gaussian pulse evolves with 2nd-order independent residual",
+   "equation_labels": [
+    "PF Cowling pulsation ODE A2 ξ''+A1 ξ'+A0 ξ=ω² ξ",
+    "Matrix-method stencil",
+    "W,P,Q (Eq.40a-40c)",
+    "Chandrasekhar SL eq + Xi"
+   ]
+  },
+  {
+   "node_id": "s1a.heat_criterion",
+   "summary": "Heat-conduction stability check: build 𝔽 (positive-definite bulk/shear) and 𝔾 (heat) operators, evaluate first-order frequency shift, verify c_s²−c_n²≥0 criterion and reproduce conditional instability on a toy c_n²>c_s² EOS.",
+   "status": "future",
+   "predecessors": [
+    "s1a.radial_eig"
+   ],
+   "stage": "1A",
+   "domain": "proof",
+   "gate": "Bulk/shear unconditionally stable; sign of Im(iω^{(1)}) flips exactly when c_n²>c_s²",
+   "equation_labels": [
+    "Viscous operator F (Eq.64-65)",
+    "Heat source Y / G",
+    "First-order freq shift (Eq.62)",
+    "Sound speeds (Eq.26,27)"
+   ]
+  },
+  {
+   "node_id": "s1b.axial_wave_eqs",
+   "summary": "Axial (odd-parity) linear sector: assemble the two coupled wave equations for (ψ,Z) with shear-only viscosity (ζ=0), Regge-Wheeler potential V, viscous second-sound speed c_η²=η/(τ(p+ρ)), couplings C1..C5.",
+   "status": "future",
+   "predecessors": [
+    "s1a.tov_background",
+    "step0.causality"
+   ],
+   "stage": "1B",
+   "domain": "symbolic",
+   "gate": "Coupled axial wave eqs match Redondo-Yuste eq14 / Bussières eq17-21; inviscid limit decouples to Regge-Wheeler",
+   "equation_labels": [
+    "axial O_l wave eq (eq.14a)",
+    "axial O_n wave eq (eq.14b)",
+    "Eqs.17-18 (axial QNM system)",
+    "Eq.19 (Regge-Wheeler potential)",
+    "Eq.20 (viscous second-sound speed)",
+    "Eq.21 (U and couplings)"
+   ]
+  },
+  {
+   "node_id": "s1b.qnm_freqdomain",
+   "summary": "Axial QNM eigenvalue solver: interior two-seed shooting + surface regularity BC, exterior Leaver continued-fraction vacuum, Wronskian root search with viscosity-continuation tracking of w-modes and η-mode family.",
+   "status": "future",
+   "predecessors": [
+    "s1b.axial_wave_eqs"
+   ],
+   "stage": "1B",
+   "domain": "numerical",
+   "gate": "Reproduce Table 2 ℓ=2 w-mode (10.4884 kHz,29.5870 µs)→(10.0898 kHz,30.8857 µs) across η_c; η-mode Im ω→0 as η_c→0; avoided crossing at η_c≳1e30",
+   "equation_labels": [
+    "Eqs.17-18 (axial QNM system)",
+    "Eq.24 (surface regularity BC)",
+    "Eq.41 (compactness scaling)"
+   ]
+  },
+  {
+   "node_id": "s1c.hrsc_core",
+   "summary": "Nonlinear spherically-symmetric BDNK under Cowling: HRSC finite-volume (WENO5/FDOC) + KT central flux, conserved (T^{tt},T^{ti}) evolution consuming step0.bdnk_recovery for primitive time-derivatives; regularized vtilde^r=v^r/r, atmosphere, outflow BC.",
+   "status": "future",
+   "predecessors": [
+    "step0.bdnk_recovery",
+    "s1a.tov_background"
+   ],
+   "stage": "1C",
+   "domain": "numerical",
+   "gate": "Static viscous TOV stays stable to t_f=8000 M☉ within the τ_ε≲0.1 window; conformal Gaussian/shock sub-tests pass",
+   "equation_labels": [
+    "BDNK stress tensor, Eq. 6",
+    "Dissipative corrections, Eqs. 6-8",
+    "Conservation law, Eq. 19",
+    "Cowling metric (isotropic), Eq. 61",
+    "Kurganov-Tadmor flux",
+    "WENO weights"
+   ]
+  },
+  {
+   "node_id": "s1c.imex",
+   "summary": "Time integration: SSP-RK3 (Shum) / Heun RK2 (conformal) with CFL Dt/Dr=0.25; IMEX treatment / numerical-dissipation floor (0.1c) for the stiff relaxation terms; characteristic-speed dissipation, hardened atmosphere.",
+   "status": "future",
+   "predecessors": [
+    "s1c.hrsc_core"
+   ],
+   "stage": "1C",
+   "domain": "numerical",
+   "gate": "Stable long-time evolution across Dr∈[0.001,0.0032] M☉ with convergence; CFL=0.25 stable",
+   "equation_labels": [
+    "Heun RK2",
+    "Kreiss-Oliger dissipation"
+   ]
+  },
+  {
+   "node_id": "s1c.qnm_extract",
+   "summary": "QNM extraction from the nonlinear ringdown: fit ε̃_c(t)=A e^{−t/τ}cos(ωt+φ0)+C; seed via initial-data truncation error; FFT for frequency content.",
+   "status": "future",
+   "predecessors": [
+    "s1c.imex"
+   ],
+   "stage": "1C",
+   "domain": "numerical",
+   "gate": "Reproduce F=2.69 kHz, H1≈4.55, H2≈6.36 kHz and 1/τ∈{0.00157,0.00150,0.00215,0.00182} M☉⁻¹ across the four cases",
+   "equation_labels": [
+    "QNM fit, Table 2"
+   ]
+  },
+  {
+   "node_id": "s2.gr_coupling",
+   "summary": "Fork A: couple BDNK hydro to 1+1D dynamical GR (harmonic or BSSN/Z4c-like), realistic/tabulated EOS, collapse; reuse s1c core, add metric evolution + apparent-horizon finder.",
+   "status": "future",
+   "predecessors": [
+    "s1c.qnm_extract"
+   ],
+   "stage": "2",
+   "domain": "numerical",
+   "gate": "Bjorken ODE Q_N→16 and steady-shock RH (e_R=4.4074,v_R=0.41667) reproduced; stable collapse to BH",
+   "equation_labels": [
+    "Bjorken EOM (eq.50, Milne)",
+    "Rankine-Hugoniot (steady shock)",
+    "Steady-shock erf initial data"
+   ]
+  },
+  {
+   "node_id": "s2.is_contrast",
+   "summary": "IS (Müller-Israel-Stewart) baseline + BDNK-vs-IS migration/damping contrast (Chabanov-Rezzolla): Π-as-variable cons2prim with limiters, causality-capping τ_Π reset.",
+   "status": "future",
+   "predecessors": [
+    "s2.gr_coupling"
+   ],
+   "stage": "2",
+   "domain": "numerical",
+   "gate": "Migration of unstable TOV: NO BH collapse, shock stalls ~60 km at high ζ; recovered ζ within 6-35% via convergence fit",
+   "equation_labels": [
+    "Eq.30 c_s'^2",
+    "Eq.31 causality fix",
+    "Eq.9 cons vars"
+   ]
+  },
+  {
+   "node_id": "s3.cowling_3p1",
+   "summary": "Fork B: 3+1D Cowling non-radial BDNK modes; cubed-sphere angular-derivative gradient terms (Keeble-Pretorius S² formalism), RK4 + KO dissipation, polar+axial sectors.",
+   "status": "future",
+   "predecessors": [
+    "s1c.qnm_extract"
+   ],
+   "stage": "3",
+   "domain": "numerical",
+   "gate": "Reproduce non-radial mode frequencies; 4th-order convergence on cubed-sphere; axial η-mode recovered in 3+1D",
+   "equation_labels": [
+    "T_munu (eq.16)",
+    "constitutive (eqs.17-19)",
+    "Velocity ansatz",
+    "Vorticity diagnostic"
+   ]
+  },
+  {
+   "node_id": "s4.production",
+   "summary": "Production runs: realistic tabulated EOS, physical transport (η_c in g cm⁻¹ s⁻¹), full causality monitoring, GW extraction, convergence/error budget; reusable AthenaK-style modules.",
+   "status": "future",
+   "predecessors": [
+    "s2.is_contrast",
+    "s3.cowling_3p1"
+   ],
+   "stage": "4",
+   "domain": "numerical",
+   "gate": "Convergent production catalog with documented error budget; causality flag clean over full runs",
+   "equation_labels": [
+    "Eq.58 EOS",
+    "Frame choice (eq.41-43)"
+   ]
+  }
+ ],
+ "build_order": [
+  "step0.eos + step0.con2prim_ideal + step0.causality — parallel, all blocking; pin sign/8π/mostly-plus conventions and unit-test TOV exterior e^ν→1−2M/R",
+  "step0.bdnk_recovery — conformal closed-form (verify against solver.c compute_xiD/uxD) first, then general-EOS linear-solve scaffold with PF fallback",
+  "s1a.tov_background — shared TOV trunk for 1A/1B/1C; RK4 + implicit-CN cross-check",
+  "s1a.radial_eig + s1a.heat_criterion — linear, fast; validates EOS+TOV+causality plumbing and the Caballero-Yunes c_s²−c_n²≥0 criterion",
+  "s1b.axial_wave_eqs + s1b.qnm_freqdomain — reuse TOV; interior shooting + Leaver exterior continued fraction; match Bussières Table 2 and the η-mode family",
+  "s1c.hrsc_core → s1c.imex → s1c.qnm_extract — first nonlinear consumer of step0.bdnk_recovery; reproduce Shum QNM freqs + decay rates + stable τ_ε≲0.1 window",
+  "Fork: s2.gr_coupling → s2.is_contrast (dynamical GR + collapse + IS contrast) and s3.cowling_3p1 (3+1D non-radial) in parallel",
+  "s4.production — realistic EOS, physical transport, GW extraction, error budget"
+ ],
+ "human_decision_points": [
+  {
+   "param": "{{EOS_TABLE}}",
+   "recommendation": "Default to the Shum analytic p(ε)=[1+2εκ−√(1+4εκ)]/(2κ) with Γ=2, κ=100 for the 1C reproduction trunk, and the cold polytrope p=κε^γ (γ=2, κ=100) for 1A/1B; defer tabulated/SLy/APR to Stage 2/4.",
+   "why": "These two analytic EOS are exactly invertible (no per-cell root-find) and are the EOS the benchmark sources (Shum 2509.15303, NeutronStarOscillations.jl, Bussières 2604.13208) actually use, so the gates are well-defined. A realistic tabulated EOS pushes c_s²→1 and breaks the PMP frame ansatz (τ̂→∞), so it is intentionally deferred."
+  },
+  {
+   "param": "{{TRANSPORT}}",
+   "recommendation": "Use dimensionless parametrized hats (η̂,ζ̂,τ̂,σ̂,ŝ,â,q̂) for all STEP-0/1A/1C benchmarks; map to physical η_c [g cm⁻¹ s⁻¹] only at Stage 1B (to match Bussières η_c∈[3e29,1e31]) and at Stage 4 production.",
+   "why": "Every causality/stability inequality and every reproduction target except Bussières is stated in hats; physical units add an EOS-dependent conversion that is only needed where the literature gives physical η_c. Keeping the trunk dimensionless avoids unit drift and makes the causality monitor frame-portable."
+  },
+  {
+   "param": "{{FRAME_SET}}",
+   "recommendation": "Shum (ŝ,â,q̂)=(1,1,0.999) for the 1C nonlinear core; conformal luminal (χ₀,λ₀)=(25/4,25/7)η₀ for the STEP-0 recovery unit test; Bussières frames A1/A2/B1/B2 for 1B.",
+   "why": "(1,1,0.999) is the only frame Shum demonstrates stable to t_f=8000 M☉, so it is the safe default for the nonlinear trunk. The conformal luminal frame gives c±=1 exactly and a closed-form recovery, making it the ideal verification target for step0.bdnk_recovery. Frames A/B are required to reproduce Bussières Table 2 (they differ at high η_c)."
+  },
+  {
+   "param": "{{TOL}}",
+   "recommendation": "Δ_visc (PF-fallback threshold) default OFF (TOL<0 → fallback never fires → always BDNK linear solve) for all benchmarks; enable and lower with resolution only in production where atmosphere/surface cells need PF robustness.",
+   "why": "With TOL<0 the BDNK solve is exercised everywhere, which is what the conformal C reference does and what the gates assume; turning the fallback on introduces an empirically-tuned, resolution-dependent threshold that should not pollute benchmark reproduction. Production runs with surfaces/atmospheres need the fallback for robustness, tuned down as Δx shrinks."
+  },
+  {
+   "param": "{{GR_BACKEND}}",
+   "recommendation": "Cowling (frozen metric) for Stages 1A/1B/1C and 3; full dynamical 1+1D GR (harmonic gauge per BDN, or a BSSN/Z4c-like scheme per Chabanov-Rezzolla) only at Stage 2; reuse an existing NR backend (AthenaK-style reusable module) rather than hand-rolling Einstein evolution.",
+   "why": "All linear and the first nonlinear benchmarks (Shum) are under Cowling, so a frozen-metric backend reaches every 1A/1B/1C/3 gate with far less code and no constraint-evolution risk. Dynamical GR is only needed for collapse (Stage 2); BDN proves strong hyperbolicity/LWP in harmonic gauge, and reusing a battle-tested NR backend avoids re-deriving constraint damping (esp. given Fantini-Rubio's non-propagating-constraint warning for naive reductions)."
+  }
+ ],
+ "risks": [
+  "General-EOS gradient-frozen shifted inversion exists in closed form ONLY for the conformal case; the symbolic 2×2 Jacobian for a tabulated/Shum NS EOS must be re-derived (Mathematica) or built numerically — highest-risk trunk item (step0.bdnk_recovery).",
+  "Stiff realistic EOS with c_s²→1 breaks the PMP/Shum frame ansatz (τ̂→∞); Stage-2 realistic-EOS collapse may require a different hydrodynamic frame not provided by any source.",
+  "Constraint non-propagation (Fantini-Rubio 2506.06430): the BDNK first-order auxiliary-variable reduction constraints grow exponentially in flat-space 1+1D with no constraint-damping scheme — a hazard if Stage 2 uses such a recast.",
+  "No shipped numeric benchmark table for the Julia linear package (Keeble citation is a placeholder, arXiv unpublished); 1A/1B must be cross-validated against Caballero-Yunes (analytic) and Bussières Table 2 instead of the package's own outputs.",
+  "Sign/convention drift across sources (4π vs 8π, e^ν vs e^{−2Φ}, mostly-plus vs other, dimensionless-τ in NSO vs dimensionful τ_ε); must be pinned once at STEP 0 and guarded by the TOV exterior e^ν→1−2M/R unit test.",
+  "η₀==0 / DEN→0 singular cases in the recovery denominator can produce NaN; the PF fallback must be wired even when nominally disabled, and the Jacobian determinant monitored.",
+  "QNM decay-rate gates (Shum 1/τ) are resolution-dependent fits with linear-vs-nonlinear damping ambiguity (Table 2); the 5% tolerance may need a convergence study to interpret, and seeding amplitude/profile of the ringdown is not fully specified.",
+  "Heat-conduction channel (κ, σ, β_n) is needed only for the full multi-fluid causality set but is dropped in the barotropic trunk; re-introducing it at Stage 4 reopens the κ_ε vs κ_s distinction and the c_s²−c_n² criterion, which the barotropic sources never exercise."
+ ]
+}

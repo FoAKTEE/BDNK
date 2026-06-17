@@ -1,0 +1,2 @@
+timestamp,paper,task_id,node_id,node_seq,iteration,git_commit,stage,domain,change_type,change_summary,metric.name,metric.value,metric.threshold,metric.pass,pass_fail,wall_clock_seconds
+2026-06-17T08:26:09+00:00,bdnk-hmns,STEP0,step0.con2prim_ideal,1,1,835faae,validation,numerical,structural,STEP 0 prim<->cons round-trip across polytrope/ideal/tabulated + BDNK frozen,round_trip_max_rel_err,1.2e-14,1e-10,True,pass,5.0
