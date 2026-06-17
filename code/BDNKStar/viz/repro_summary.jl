@@ -33,6 +33,8 @@ rows = [
  ("Julia vs C code: conv order",    2.2e-2,  1e-1),
  ("R4 axial traj τ @η_c=1e31",      3.5e-4,  1e-2),
  ("R4 ultracompact ω_R (R=2.6M)",   1.2e-3,  8e-2),
+ ("PMP conv_plot factor Q_N=4",     5.0e-3,  5e-2),
+ ("PMP Conv conformal order vs C",  8.5e-4,  5e-2),
 ]
 sort!(rows, by=r->r[2])
 labels = [r[1] for r in rows]
@@ -40,7 +42,7 @@ errs   = [r[2] for r in rows]
 tols   = [r[3] for r in rows]
 y = 1:length(rows)
 
-fig = Figure(size=(940, 760))
+fig = Figure(size=(960, 820))
 ax = Axis(fig[1,1], xscale=log10, xlabel="relative error  |achieved − target| / target",
           yticks=(y, labels), title="BDNKStar reproduction validation — every benchmark ≪ tolerance")
 for i in y
