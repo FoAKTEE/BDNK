@@ -10,3 +10,4 @@ timestamp,paper,task_id,node_id,node_seq,iteration,git_commit,stage,domain,chang
 2026-06-17T09:58:41+00:00,bdnk-hmns,STEP0,step0.causality,1,5,0d8c068,validation,symbolic,scalar,"Shum frame char speeds c+=√3 cs, c-=0.0183 cs reproduced (eq.67-71)",|c-/cs - 0.0183|,0.0001,0.001,True,pass,3.0
 2026-06-17T10:07:50+00:00,bdnk-hmns,1C,s1c.imex,1,6,9c62371,validation,numerical,structural,"Conformal evolution self-convergence (3-grid Richardson) order 3.66, ordered 2nd-5th",convergence order,3.66,2.0,True,pass,20.0
 2026-06-17T10:11:46+00:00,bdnk-hmns,STEP0,step0.bjorken,1,7,f7dad49,validation,numerical,structural,PMP Bjorken inviscid RK4 Q→16 + analytic match + diagnostic identity,diagnostic max dev,4.4e-16,1e-12,True,pass,10.0
+2026-06-17T10:23:19+00:00,bdnk-hmns,FIG,fig.kovtun,1,8,b9ae736,validation,numerical,structural,"Kovtun 3 figures (cvphi, reshear, imshear) reproduced + VLM dual-checked; stability Im ω≤0",max Im ω,0.0,1e-10,True,pass,15.0

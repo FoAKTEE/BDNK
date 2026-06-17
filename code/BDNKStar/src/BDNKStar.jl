@@ -27,6 +27,7 @@ include("conformal/ConformalBDNK.jl")
 include("conformal/ConformalEvolution.jl")
 include("perturbations/RadialModes.jl")
 include("flows/Bjorken.jl")
+include("dispersion/Kovtun.jl")
 
 using .Numerics
 using .Units
@@ -39,6 +40,7 @@ using .ConformalBDNK
 using .ConformalEvolution
 using .RadialModes
 using .Bjorken
+using .Kovtun
 
 # Re-export the STEP-0 public surface.
 export Numerics, Units, EquationOfState, Transport, Causality, Recovery
@@ -66,5 +68,7 @@ export ConfState, init_gaussian, init_smooth_shock, evolve!, energy_density
 export radial_cowling_spectrum, hz_per_invkm
 # Bjorken flow (PMP test)
 export bjorken_pressure, bjorken_inviscid_analytic, bjorken_diagnostic, bjorken_evolve_rk4
+# Kovtun dispersion relations (1907.08191)
+export kovtun_cv, kovtun_shear_modes, kovtun_shear_speed
 
 end # module BDNKStar

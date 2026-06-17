@@ -11,4 +11,5 @@ using Test
     include("test_radial.jl")
     include("test_heat_criterion.jl")
     include("test_bjorken.jl")
+    include("test_kovtun.jl")
 end
