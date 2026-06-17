@@ -30,7 +30,7 @@ using ..Numerics
 
 export AbstractEOS, BarotropicEOS, GeneralEOS,
        PolytropeEnergy, ShumPolytrope, IdealGas, TabulatedBarotrope, tabulate,
-       pressure, sound_speed2, d2pde2, energy_from_pressure,
+       pressure, sound_speed2, cn2, heat_conduction_stable, d2pde2, energy_from_pressure,
        dpdrho_eps, dpdeps_rho, specific_enthalpy, total_energy_density,
        temperature, is_thermodynamically_valid, apply_floor
 
@@ -88,12 +88,26 @@ end
     return 1 + ϵ + pressure(eos, ρ, ϵ) / ρ
 end
 
-# Relativistic sound speed:  cs² = (1/h)(∂p/∂ρ|_ϵ + (p/ρ²) ∂p/∂ϵ|_ρ)
+# Relativistic adiabatic sound speed:  cs² = (1/h)(∂p/∂ρ|_ϵ + (p/ρ²) ∂p/∂ϵ|_ρ)
 @inline function sound_speed2(eos::GeneralEOS, ρ::Real, ϵ::Real)
     p = pressure(eos, ρ, ϵ)
     h = 1 + ϵ + p/ρ
     return (dpdrho_eps(eos, ρ, ϵ) + (p/ρ^2) * dpdeps_rho(eos, ρ, ϵ)) / h
 end
+
+# Fixed-baryon sound speed  c_n² = (∂p/∂ε)_n.  At fixed ρ: ε=ρ(1+ϵ) ⇒ ∂ε/∂ϵ|_ρ=ρ,
+# so c_n² = (∂p/∂ϵ|_ρ)/ρ. (Caballero–Yunes heat-conduction criterion.)
+@inline cn2(eos::GeneralEOS, ρ::Real, ϵ::Real) = dpdeps_rho(eos, ρ, ϵ) / ρ
+
+"""
+    heat_conduction_stable(eos, ρ, ϵ) -> Bool
+
+Caballero–Yunes (2506.09149) necessary radial heat-conduction stability
+criterion: c_s² − c_n² ≥ 0 (adiabatic ≥ fixed-baryon sound speed). A cold
+barotrope is marginal (=0); the ideal gas violates it (c_s²−c_n²<0 ⇒ unstable).
+"""
+@inline heat_conduction_stable(eos::GeneralEOS, ρ::Real, ϵ::Real) =
+    sound_speed2(eos, ρ, ϵ) - cn2(eos, ρ, ϵ) ≥ 0
 
 # ---------------------------------------------------------------------------
 # Tabulated barotrope — monotone cubic-Hermite table of p(e), with cs² = dp/de

@@ -8,4 +8,5 @@ using Test
     include("test_conformal.jl")
     include("test_conformal_evolution.jl")
     include("test_radial.jl")
+    include("test_heat_criterion.jl")
 end

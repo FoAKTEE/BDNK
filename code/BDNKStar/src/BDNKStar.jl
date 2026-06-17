@@ -43,7 +43,7 @@ export Numerics, Units, EquationOfState, Transport, Causality, Recovery
 # EOS
 export AbstractEOS, BarotropicEOS, GeneralEOS,
        PolytropeEnergy, ShumPolytrope, IdealGas, TabulatedBarotrope, tabulate,
-       pressure, sound_speed2, energy_from_pressure,
+       pressure, sound_speed2, cn2, heat_conduction_stable, energy_from_pressure,
        dpdrho_eps, dpdeps_rho, specific_enthalpy, total_energy_density,
        temperature, is_thermodynamically_valid, apply_floor
 # TOV background

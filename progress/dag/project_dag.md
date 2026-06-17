@@ -10,7 +10,7 @@ flowchart TD
   n_step0_bdnk_recovery["● <b>step0.bdnk_recovery</b> · k2 t1<br/>Conformal BDNK constitutive + compute_xiD/uxD recovery po…"]:::solid
   n_s1a_tov_background["● <b>s1a.tov_background</b> · k3 t2<br/>Reproduce Shum M_T=1.40016 M☉ (target 1.4; M☉=G=c=1 units…"]:::solid
   n_s1a_radial_eig["◐ <b>s1a.radial_eig</b> · k2 t1<br/>Radial Cowling eigensolver (NSO A0/A1/A2 operator); spect…"]:::preliminary
-  n_s1a_heat_criterion["□ <b>s1a.heat_criterion</b> · k1<br/>Heat-conduction stability check: build 𝔽 (positive-defini… <br/><i>Viscous operator F (Eq.64-65), Heat source Y / G, First-order freq shift (Eq.62), Sound speeds (Eq.26,27)</i>"]:::future
+  n_s1a_heat_criterion["◐ <b>s1a.heat_criterion</b> · k2 t1<br/>Reproduce CY heat-conduction criterion c_s²−c_n²≥0: ideal…"]:::preliminary
   n_s1b_axial_wave_eqs["□ <b>s1b.axial_wave_eqs</b> · k1<br/>Axial (odd-parity) linear sector: assemble the two couple… <br/><i>axial O_l wave eq (eq.14a), axial O_n wave eq (eq.14b), Eqs.17-18 (axial QNM system), Eq.19 (Regge-Wheeler potential)…</i>"]:::future
   n_s1b_qnm_freqdomain["□ <b>s1b.qnm_freqdomain</b> · k1<br/>Axial QNM eigenvalue solver: interior two-seed shooting +… <br/><i>Eqs.17-18 (axial QNM system), Eq.24 (surface regularity BC), Eq.41 (compactness scaling)</i>"]:::future
   n_s1c_hrsc_core["◐ <b>s1c.hrsc_core</b> · k2 t1<br/>Flat-space conformal BDNK evolution engine (WENO5+KT+Heun…"]:::preliminary
