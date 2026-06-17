@@ -13,7 +13,8 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | picimshearv09 | shear-channel Im ω(k) (stability) | ✅ kovtun_imshearv09.png |
 | picresoundv09 / picimsoundv09 | sound-channel Re/Im ω(k) (quartic F_sound) | ✅ kovtun_{re,im}soundv09.png (fan within light cone; Im ω≤0 stable) |
 | piccsGs09 / piccsGs01 | sound speed vs G_s | 🔨 |
-| picstab / picstabcaus | stable / causal frame region | 🔨 |
+| picstab | sound-channel stability region | ✅ kovtun_picstab.png (bands ε̄1<2/v_s², RH bites; region grows for smaller v_s) |
+| picstabcaus | + causality | 🔨 (stability done) |
 
 ## arXiv:2201.12317 — Pandya conformal BDNK (numerical method)
 | figure | what | status |
