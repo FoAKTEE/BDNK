@@ -22,7 +22,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | steady_state_fig / shock_comp | steady planar shock | ✅ conf_shock_overlay.png — Julia vs reference C code <1% (shock sharpens to steady-state, εR=4.4074); engine conformal_evolution.png |
 | gaussian_clump (code validation) | conformal evolution vs reference C code | ✅ conf_overlay.png — Julia engine vs Pandya 1D_conformal_bdnk C code agree to 0.06% (full ε(x,t) evolution) |
 | STEP/Riemann (code validation) | Riemann fan vs reference C code | ✅ conf_step_overlay.png — Julia vs C agree to 4.7e-5% (machine-level; completes Gaussian/shock/STEP triad) |
-| Conv_plot | self-convergence order | ✅ conf_convergence.png — Julia p=1.37 vs C code p=1.34 (coincident error curves; order limited by under-resolved narrow clump) |
+| Conv_plot | self-convergence order | ✅ conf_convergence.png (narrow clump, Julia 1.37 vs C 1.34) + conf_conv_smooth.png (smooth Gaussian, Julia p=2.366 vs C p=2.368, err<1%) — conformal engine reproduces the C code convergence ORDER EXACTLY; C code ~2.37 here so Pandya Q≈4 is shock-test-specific |
 | CC_plot | WENO5 mixed-deriv commutator ∫∫|∂x∂yξ−∂y∂xξ| | 🔨→✅mechanism (PRELIMINARY: 2D-surrogate, no 2D ref code; ε_W=1e15 machine-floor + decay matched) |
 | Tab_cons | ∫T^tt discrete conservation (FV vs FD) | ✅ conf_tab_cons.png — FV machine-precision ~1e-14 vs FD ~1e-2 (12 orders), both jump at boundary t≈240 |
 | eta1_step / kh_vs_eta / rotor_eta_t | step+eta, Kelvin-Helmholtz, rotor (2D) | 🏗 2D evolution — NO 2D reference code |
@@ -31,7 +31,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | figure | what | status |
 |---|---|---|
 | bjorken_plot | Bjorken flow ε(τ) + 4th-order convergence | ✅ bjorken.png (Q→16) |
-| conv_plot | PDE self-convergence | ✅ conf_conv_smooth.png — Julia engine reproduces the C code convergence ORDER EXACTLY (Julia p=2.366 vs C p=2.368, err <1%) on the smooth Gaussian; C code itself ~2.37 here so Pandya Q≈4 is shock-test-specific (PMP shock pmp_conv.png Q≈2.0) |
+| conv_plot (PMP ideal-gas) | PDE self-convergence | ⚠ pmp_conv.png — PMP engine ~2nd order (shock Q≈2.0, smooth Q≈1.2, KT flux); paper Q≈4 is a higher-order scheme; NO PMP reference code to validate against (cf. Pandya/conformal Conv_plot which IS validated to <1% vs C code) |
 | shockwave_plot | steady BDNK shock ε/v/n profile | ✅ pmp_shockwave.png — {1,0.8,0.1}_L→{4.44,0.414,0.293}_R (vR/nR match RH; black sharp/green wide) |
 | telegraphers_plot | telegrapher heat→wave transition | ✅ pmp_telegrapher_reproduction.png (transition+ordering; split verified 1.000 in repro) |
 | shock_instability / acaus_instab | shock causality crash classification | ✅ pmp_shock_reproduction.png (c₊(τ̂); crash at τ̂=0.25 acausal & τ̂=3 v>c₊); v(x) profiles in repro |
