@@ -5,4 +5,5 @@ using Test
     include("test_recovery.jl")
     include("test_causality.jl")
     include("test_tov.jl")
+    include("test_conformal.jl")
 end

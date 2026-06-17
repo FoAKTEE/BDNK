@@ -23,6 +23,7 @@ include("tov/TOV.jl")
 include("transport/Transport.jl")
 include("transport/Causality.jl")
 include("recovery/Recovery.jl")
+include("conformal/ConformalBDNK.jl")
 
 using .Numerics
 using .Units
@@ -31,6 +32,7 @@ using .TOV
 using .Transport
 using .Causality
 using .Recovery
+using .ConformalBDNK
 
 # Re-export the STEP-0 public surface.
 export Numerics, Units, EquationOfState, Transport, Causality, Recovery
@@ -49,5 +51,8 @@ export TransportCoefficients, conformal_frame_PMP,
 export prim2cons_barotropic, cons2prim_barotropic,
        prim2cons_general, cons2prim_general,
        cons2prim_bdnk_barotropic, lorentz_W
+# Conformal BDNK (flat-space reference)
+export ConformalFrame, pmp_luminal_frame, rankine_hugoniot,
+       recover_time_derivs
 
 end # module BDNKStar

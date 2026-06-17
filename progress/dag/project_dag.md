@@ -7,7 +7,7 @@ flowchart TD
   n_step0_eos["● <b>step0.eos</b> · k2<br/>Add Shum Γ=2 cold polytrope p(ε)=[1+2κε−√(1+4κε)]/2κ (1C …"]:::solid
   n_step0_con2prim_ideal["● <b>step0.con2prim_ideal</b> · k2 t2<br/>STEP 0 validation figure (round-trip vs |v|, tabulated N⁻…"]:::solid
   n_step0_causality["● <b>step0.causality</b> · k1<br/>Causality/stability monitor: full BDN Thm-I (a,b,d,e), re… <br/><i>BDNK characteristic speeds, Causality bounds, Simplified constraints (eq.44), causality (A1)+(a) (1171,1179)…</i>"]:::solid
-  n_step0_bdnk_recovery["◐ <b>step0.bdnk_recovery</b> · k1<br/>BDNK gradient-frozen shifted (linear-)Newton primitive-ti… <br/><i>compute_xiD return (solver.c:447), compute_uxD return (solver.c:491), prim-recovery denominator DEN, Linear BDNK primitive recovery…</i>"]:::preliminary
+  n_step0_bdnk_recovery["● <b>step0.bdnk_recovery</b> · k2 t1<br/>Conformal BDNK constitutive + compute_xiD/uxD recovery po…"]:::solid
   n_s1a_tov_background["● <b>s1a.tov_background</b> · k2 t1<br/>TOV RK4 background + reproduce Bussières EOS1 M=1.266 M☉/…"]:::solid
   n_s1a_radial_eig["□ <b>s1a.radial_eig</b> · k1<br/>Radial (Cowling) linear eigensolver: Chandrasekhar Sturm-… <br/><i>PF Cowling pulsation ODE A2 ξ''+A1 ξ'+A0 ξ=ω² ξ, Matrix-method stencil, W,P,Q (Eq.40a-40c), Chandrasekhar SL eq + Xi</i>"]:::future
   n_s1a_heat_criterion["□ <b>s1a.heat_criterion</b> · k1<br/>Heat-conduction stability check: build 𝔽 (positive-defini… <br/><i>Viscous operator F (Eq.64-65), Heat source Y / G, First-order freq shift (Eq.62), Sound speeds (Eq.26,27)</i>"]:::future
