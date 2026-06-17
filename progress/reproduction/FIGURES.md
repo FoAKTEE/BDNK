@@ -24,7 +24,8 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | STEP/Riemann (code validation) | Riemann fan vs reference C code | ✅ conf_step_overlay.png — Julia vs C agree to 4.7e-5% (machine-level; completes Gaussian/shock/STEP triad) |
 | Conv_plot | self-convergence order | ✅ conf_convergence.png — Julia p=1.37 vs C code p=1.34 (coincident error curves; order limited by under-resolved narrow clump) |
 | CC_plot | WENO5 mixed-deriv commutator ∫∫|∂x∂yξ−∂y∂xξ| | 🔨→✅mechanism (PRELIMINARY: 2D-surrogate, no 2D ref code; ε_W=1e15 machine-floor + decay matched) |
-| eta1_step / kh_vs_eta / rotor_eta_t / Tab_cons | step, Kelvin-Helmholtz, rotor (2D), conservation | 🏗 (2D evolution) |
+| Tab_cons | ∫T^tt discrete conservation (FV vs FD) | ✅ conf_tab_cons.png — FV machine-precision ~1e-14 vs FD ~1e-2 (12 orders), both jump at boundary t≈240 |
+| eta1_step / kh_vs_eta / rotor_eta_t | step+eta, Kelvin-Helmholtz, rotor (2D) | 🏗 2D evolution — NO 2D reference code |
 
 ## arXiv:2209.09265 — PMP ideal-gas BDNK
 | figure | what | status |
