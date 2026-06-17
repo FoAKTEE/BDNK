@@ -1,0 +1,11 @@
+# t  Q   (smooth-bump self-convergence, locked dt; isolates spatial order)
+0.5  1.5457
+1.0  1.3894
+1.5  1.3167
+2.0  1.2616
+2.5  1.2183
+3.0  1.1822
+3.5  1.1508
+4.0  1.1232
+4.5  1.0977
+5.0  1.0744
