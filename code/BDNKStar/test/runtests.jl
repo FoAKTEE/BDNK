@@ -10,4 +10,5 @@ using Test
     include("test_conformal_convergence.jl")
     include("test_radial.jl")
     include("test_heat_criterion.jl")
+    include("test_bjorken.jl")
 end

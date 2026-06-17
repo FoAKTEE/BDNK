@@ -26,6 +26,7 @@ include("recovery/Recovery.jl")
 include("conformal/ConformalBDNK.jl")
 include("conformal/ConformalEvolution.jl")
 include("perturbations/RadialModes.jl")
+include("flows/Bjorken.jl")
 
 using .Numerics
 using .Units
@@ -37,6 +38,7 @@ using .Recovery
 using .ConformalBDNK
 using .ConformalEvolution
 using .RadialModes
+using .Bjorken
 
 # Re-export the STEP-0 public surface.
 export Numerics, Units, EquationOfState, Transport, Causality, Recovery
@@ -62,5 +64,7 @@ export ConformalFrame, pmp_luminal_frame, rankine_hugoniot,
 export ConfState, init_gaussian, init_smooth_shock, evolve!, energy_density
 # Radial perturbations (STAGE 1A)
 export radial_cowling_spectrum, hz_per_invkm
+# Bjorken flow (PMP test)
+export bjorken_pressure, bjorken_inviscid_analytic, bjorken_diagnostic, bjorken_evolve_rk4
 
 end # module BDNKStar

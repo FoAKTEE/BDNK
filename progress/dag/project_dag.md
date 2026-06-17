@@ -1,6 +1,6 @@
 # Equation DAG — paper_bdnk-hmns
 
-16 nodes. Legend: ● solid · ◐ preliminary · ○ hypothesis · ✗ blocking · □ future · △ concept-advance. Node badge `k<N>` = knowledge records under the node, `t<N>✗<F>` = trials (F failed). Dashed edge = predecessor outside scope.
+17 nodes. Legend: ● solid · ◐ preliminary · ○ hypothesis · ✗ blocking · □ future · △ concept-advance. Node badge `k<N>` = knowledge records under the node, `t<N>✗<F>` = trials (F failed). Dashed edge = predecessor outside scope.
 
 ```mermaid
 flowchart TD
@@ -20,6 +20,7 @@ flowchart TD
   n_s2_is_contrast["□ <b>s2.is_contrast</b> · k1<br/>IS (Müller-Israel-Stewart) baseline + BDNK-vs-IS migratio… <br/><i>Eq.30 c_s'^2, Eq.31 causality fix, Eq.9 cons vars</i>"]:::future
   n_s3_cowling_3p1["□ <b>s3.cowling_3p1</b> · k1<br/>Fork B: 3+1D Cowling non-radial BDNK modes; cubed-sphere … <br/><i>T_munu (eq.16), constitutive (eqs.17-19), Velocity ansatz, Vorticity diagnostic</i>"]:::future
   n_s4_production["□ <b>s4.production</b> · k1<br/>Production runs: realistic tabulated EOS, physical transp… <br/><i>Eq.58 EOS, Frame choice (eq.41-43)</i>"]:::future
+  n_step0_bjorken["● <b>step0.bjorken</b> · k1 t1<br/>Reproduce PMP Bjorken inviscid flow (2209.09265): RK4 dε/…"]:::solid
   n_step0_con2prim_ideal --> n_step0_bdnk_recovery
   n_step0_causality --> n_step0_bdnk_recovery
   n_step0_eos --> n_s1a_tov_background
@@ -38,6 +39,8 @@ flowchart TD
   n_s1c_qnm_extract --> n_s3_cowling_3p1
   n_s2_is_contrast --> n_s4_production
   n_s3_cowling_3p1 --> n_s4_production
+  n_step0_eos --> n_step0_bjorken
+  n_step0_bdnk_recovery --> n_step0_bjorken
   classDef solid fill:#e6ffed,stroke:#28a745,color:#000;
   classDef preliminary fill:#fff8e1,stroke:#d4a017,color:#000;
   classDef hypothesis fill:#e7f0ff,stroke:#4977c7,color:#000;
