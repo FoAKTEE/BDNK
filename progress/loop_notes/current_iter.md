@@ -1,24 +1,26 @@
-# Iter 004 — conformal evolution engine + CY heat criterion
+# Iter 009 — dispatch 10-agent multi-team reproduction workflow
 
-**Paper anchors.** Pandya 2201.12317 / solver.c (flat-space BDNK evolution);
-Caballero–Yunes 2506.09149 (heat-conduction criterion).
+**Paper anchors.** Bussières 2604.13208 (R4 axial QNM); Shum 2509.15303 (R5
+nonlinear Cowling); Kovtun/CR/PMP/Pandya (analytic fleet).
 
-**What shipped this iter (local commits 77bef47, f77f026).**
-- src/conformal/ConformalEvolution.jl — full WENO5+KT+Heun engine (solver.c port):
-  constant state exact (Δε=0), Gaussian→2 pulses, steady shock RH-consistent.
-- EOS cn2 + heat_conduction_stable; reproduce CY Δ=c_s²−c_n²=−(Γ-1)/(1+Γϵ)<0.
-- figures conformal_evolution.png, heat_criterion.png (both VLM-ok).
-- test suite 271→ (EOS/recovery/causality/tov/conformal/conf-evolution/radial/heat).
+**Dispatched (background workflow wu7k5dafo, 10 agents, claude 4.8 ultracode).**
+- Fleet (4 parallel, analytic): kovtun_sound, is_contrast (CR IS sound speed),
+  pmp_causality (acaus_instab classification), pandya_char (char speeds + cons).
+- **R4 axial-QNM team** (3-stage pipeline): axial wave-eqs (Redondo-Yuste 14a/14b)
+  → shooting+Leaver QNM solver → adversarial verify vs Bussières (10.4884 kHz,
+  29.587 µs).
+- **R5 nonlinear-Cowling team** (3-stage pipeline): general-EOS BDNK recovery +
+  isotropic coords → SSP-RK3 stellar evolution → FFT QNM extraction + verify vs
+  Shum (F=2.69/H1=4.55/H2=6.36 kHz, decay 0.00157 M☉⁻¹).
+- Agents write self-contained repro/*.jl, run Julia, return honest matched/gap;
+  NO fabrication; NO figure gen (orchestrator does figures on matched results).
 
-**Push status.** BLOCKED — VS Code git-askpass token expired (IDE/MCP dropped).
-2 commits queued locally; push on credential restore (user: "keep building locally").
+**On completion (orchestrator).** Integrate verified modules into the package;
+generate + VLM the figures for matched reproductions; append knowledge/error
+rows under the DAG nodes (s1b.*, s1c.*, s2.is_contrast); commit per substage.
 
-**Next-3 roadmap.**
-1. R4 axial QNM (Bussières 2604.13208 w-modes 10.4884 kHz/29.587 µs; Redondo-Yuste
-   coupled wave eqs 14a/14b; shooting + Leaver continued fraction).
-2. R5 nonlinear stellar Cowling (Shum): areal→isotropic, BDNK evolve on TOV
-   background w/ general EOS, FFT QNM (F=2.69/H1=4.55/H2=6.36) + decay 0.00157.
-3. NSO.jl run to lock exact radial/axial cross-checks.
+**Loop status.** active:true (ON). gate=continue. The fleet is the iteration's
+work; the loop persists.
 
-**Verifier output.** `julia test/runtests.jl` → 271/271 pass; constant Δε=0.0;
-CY Δ exact to 1e-12.
+**Verifier output (pre-dispatch).** julia test/runtests.jl → all pass (8 solid
+nodes); Kovtun×3 + Bjorken figures VLM-matched.
