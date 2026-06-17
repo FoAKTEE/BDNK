@@ -11,7 +11,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | piccvphi | c_v(φ) moving-fluid phase velocity (c₀=½) | ✅ kovtun_cvphi.png |
 | picreshearv09 | shear-channel Re ω(k), v₀=0.9, θ/η=2 | ✅ kovtun_reshearv09.png |
 | picimshearv09 | shear-channel Im ω(k) (stability) | ✅ kovtun_imshearv09.png |
-| picresoundv09 / picimsoundv09 | sound-channel Re/Im ω(k) (quartic F_sound) | 🔨 need ε₁,ε₂,π₁ values |
+| picresoundv09 / picimsoundv09 | sound-channel Re/Im ω(k) (quartic F_sound) | ✅ validated (repro/kovtun_sound.jl: Im ω≤0); 🔨 figure |
 | piccsGs09 / piccsGs01 | sound speed vs G_s | 🔨 |
 | picstab / picstabcaus | stable / causal frame region | 🔨 |
 
@@ -34,7 +34,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 ## arXiv:2509.15303 — Shum nonlinear BDNK NS (Cowling)
 | figure | what | status |
 |---|---|---|
-| QNM_plot | QNM spectrum F/H1/H2 | 🏗 (nonlinear stellar Cowling + FFT) |
+| QNM_plot | QNM spectrum F/H1/H2 | ◐ fundamental f_nl=2.70 kHz matched (-0.2%); overtones/decay need production Dr=0.002 |
 | convergence / error_fit / casA_fitting | convergence, decay-rate fits | 🏗 |
 | stable_evol_comparing_tau / stable_evol_resolutions | stable-window evolutions | 🏗 |
 | (TOV M_T=1.4 reproduced) | — | ✅ |
@@ -42,7 +42,8 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 ## arXiv:2604.13208 — Bussières axial viscous NS
 | figure | what | status |
 |---|---|---|
-| complex_plane_2 / plot_combined / plot_ultracompact | axial QNM spectra, w-modes | 🏗 (axial coupled wave eqs + Leaver) |
+| complex_plane_2 / plot_combined | axial QNM (f,τ) vs η_c | ✅ axial_qnm_reproduction.png (<0.04% Bussières Table II) |
+| plot_ultracompact | ultracompact w-modes | 🔨 (solver ready) |
 | (EOS1 M=1.27/R=8.86 reproduced) | — | ✅ |
 
 ## arXiv:2311.13027 — Chabanov–Rezzolla (bulk-viscous BNS merger)
