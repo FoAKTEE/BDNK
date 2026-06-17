@@ -25,3 +25,4 @@ timestamp,paper,task_id,node_id,node_seq,iteration,git_commit,stage,domain,chang
 2026-06-17T17:41:49+00:00,bdnk-hmns,FIG,fig.pmp_heat,1,20,d39cbfb,validation,numerical,structural,"PMP heat_stationary closed-form ε̈ figure (σ̂=0 stationary, σ̂=1/3 localized)",σ̂=0 stationary,0.0,1e-12,True,pass,50.0,,,,,
 2026-06-17T17:45:35+00:00,bdnk-hmns,FIG,fig.kovtun_stab,1,21,2a9464e,validation,proof,structural,Kovtun picstab stability region reproduced (bands + RH boundaries match),region match,match,match,True,pass,20.0,,,,,
 2026-06-17T17:48:01+00:00,bdnk-hmns,FIG,fig.kovtun_stabcaus,1,22,5d257c0,validation,proof,structural,Kovtun picstabcaus stable+causal region reproduced; Kovtun 7/7 figures complete,causal cut match,match,match,True,pass,40.0,,,,,
+2026-06-17T17:51:32+00:00,bdnk-hmns,FIG,fig.kovtun_csgs,1,23,b33be6f,validation,symbolic,structural,Kovtun piccsGs c_s+Γ_s vs φ reproduced; Kovtun 9/9 figures complete,c± exact,0.001,0.01,True,pass,15.0,,,,,

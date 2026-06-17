@@ -12,7 +12,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | picreshearv09 | shear-channel Re ω(k), v₀=0.9, θ/η=2 | ✅ kovtun_reshearv09.png |
 | picimshearv09 | shear-channel Im ω(k) (stability) | ✅ kovtun_imshearv09.png |
 | picresoundv09 / picimsoundv09 | sound-channel Re/Im ω(k) (quartic F_sound) | ✅ kovtun_{re,im}soundv09.png (fan within light cone; Im ω≤0 stable) |
-| piccsGs09 / piccsGs01 | sound speed vs G_s | 🔨 |
+| piccsGs09 / piccsGs01 | sound velocity c_s + damping Γ_s vs φ | ✅ kovtun_csgs.png (c_s exact via cvphi; Γ_s verbatim formula) |
 | picstab | sound-channel stability region | ✅ kovtun_picstab.png (bands ε̄1<2/v_s², RH bites; region grows for smaller v_s) |
 | picstabcaus | stable + causal region | ✅ kovtun_picstabcaus.png (causality cut removes small-ε̄1; origin excluded) |
 
