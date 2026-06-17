@@ -49,7 +49,7 @@ export AbstractEOS, BarotropicEOS, GeneralEOS,
 # TOV background
 export TOVStar, solve_tov, mass_solar
 # Transport + causality
-export TransportCoefficients, conformal_frame_PMP,
+export TransportCoefficients, conformal_frame_PMP, shum_frame_speeds, shum_frame_wellposed,
        characteristic_speeds, causality_flag, is_causal
 # Recovery
 export prim2cons_barotropic, cons2prim_barotropic,

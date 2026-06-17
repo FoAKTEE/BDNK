@@ -6,7 +6,7 @@
 flowchart TD
   n_step0_eos["● <b>step0.eos</b> · k2<br/>Add Shum Γ=2 cold polytrope p(ε)=[1+2κε−√(1+4κε)]/2κ (1C …"]:::solid
   n_step0_con2prim_ideal["● <b>step0.con2prim_ideal</b> · k2 t2<br/>STEP 0 validation figure (round-trip vs |v|, tabulated N⁻…"]:::solid
-  n_step0_causality["● <b>step0.causality</b> · k1<br/>Causality/stability monitor: full BDN Thm-I (a,b,d,e), re… <br/><i>BDNK characteristic speeds, Causality bounds, Simplified constraints (eq.44), causality (A1)+(a) (1171,1179)…</i>"]:::solid
+  n_step0_causality["● <b>step0.causality</b> · k2 t1<br/>Reproduce Shum frame char speeds (eq.67-71): production f…"]:::solid
   n_step0_bdnk_recovery["● <b>step0.bdnk_recovery</b> · k2 t1<br/>Conformal BDNK constitutive + compute_xiD/uxD recovery po…"]:::solid
   n_s1a_tov_background["● <b>s1a.tov_background</b> · k3 t2<br/>Reproduce Shum M_T=1.40016 M☉ (target 1.4; M☉=G=c=1 units…"]:::solid
   n_s1a_radial_eig["◐ <b>s1a.radial_eig</b> · k2 t1<br/>Radial Cowling eigensolver (NSO A0/A1/A2 operator); spect…"]:::preliminary
@@ -20,7 +20,6 @@ flowchart TD
   n_s2_is_contrast["□ <b>s2.is_contrast</b> · k1<br/>IS (Müller-Israel-Stewart) baseline + BDNK-vs-IS migratio… <br/><i>Eq.30 c_s'^2, Eq.31 causality fix, Eq.9 cons vars</i>"]:::future
   n_s3_cowling_3p1["□ <b>s3.cowling_3p1</b> · k1<br/>Fork B: 3+1D Cowling non-radial BDNK modes; cubed-sphere … <br/><i>T_munu (eq.16), constitutive (eqs.17-19), Velocity ansatz, Vorticity diagnostic</i>"]:::future
   n_s4_production["□ <b>s4.production</b> · k1<br/>Production runs: realistic tabulated EOS, physical transp… <br/><i>Eq.58 EOS, Frame choice (eq.41-43)</i>"]:::future
-  n_step0_eos --> n_step0_causality
   n_step0_con2prim_ideal --> n_step0_bdnk_recovery
   n_step0_causality --> n_step0_bdnk_recovery
   n_step0_eos --> n_s1a_tov_background

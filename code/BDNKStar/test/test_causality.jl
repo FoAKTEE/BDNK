@@ -28,6 +28,15 @@ using BDNKStar
     end
 end
 
+@testset "Causality: Shum frame characteristic speeds (2509.15303 eq.67-71)" begin
+    # production frame (ŝ,â,q̂)=(1,1,0.999); ratios c±/cs are frame-only
+    c0, cp, cm = shum_frame_speeds(1.0, 1.0, 0.999, 0.01, 0.01, 1.0)
+    @test isapprox(cp, sqrt(3.0); atol=1e-3)     # c₊ = √3 cs
+    @test isapprox(cm, 0.0183; atol=1e-3)        # c₋ = 0.0183 cs
+    @test shum_frame_wellposed(1.0, 1.0, 0.999)  # 0 < q̂ < ŝ
+    @test !shum_frame_wellposed(1.0, 1.0, 1.5)   # q̂ > ŝ violates well-posedness
+end
+
 @testset "Causality: predicate fields and subluminal detection" begin
     poly = PolytropeEnergy(100.0, 1.0)
     e = 1e-3; p = pressure(poly, e); cs2 = sound_speed2(poly, e)

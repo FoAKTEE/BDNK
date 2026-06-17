@@ -7,3 +7,4 @@ timestamp,paper,task_id,node_id,node_seq,iteration,git_commit,stage,domain,chang
 2026-06-17T08:59:59+00:00,bdnk-hmns,1A,s1a.radial_eig,1,3,7eeb307,validation,numerical,structural,"Radial Cowling spectrum converged 2nd-order, stable (real positive ω²)",f0 conv |Δ|/f rel,1e-05,0.0001,True,pass,12.0
 2026-06-17T09:27:44+00:00,bdnk-hmns,1C,s1c.hrsc_core,1,4,da189d3,validation,numerical,structural,"Conformal flat-space WENO5+KT+Heun evolution: uniform exact, shock RH-consistent, stable",constant-state max|Δε|,0.0,1e-12,True,pass,15.0
 2026-06-17T09:41:03+00:00,bdnk-hmns,1A,s1a.heat_criterion,1,4,77bef47,validation,proof,scalar,CY heat-conduction criterion c_s²−c_n²: ideal-gas analytic form reproduced,|Δ - (-(Γ-1)/(1+Γϵ))|,1e-12,1e-10,True,pass,5.0
+2026-06-17T09:58:41+00:00,bdnk-hmns,STEP0,step0.causality,1,5,0d8c068,validation,symbolic,scalar,"Shum frame char speeds c+=√3 cs, c-=0.0183 cs reproduced (eq.67-71)",|c-/cs - 0.0183|,0.0001,0.001,True,pass,3.0

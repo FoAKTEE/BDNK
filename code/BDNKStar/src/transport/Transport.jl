@@ -13,7 +13,7 @@
 =#
 module Transport
 
-export TransportCoefficients, conformal_frame_PMP
+export TransportCoefficients, conformal_frame_PMP, shum_frame_speeds, shum_frame_wellposed
 
 """
     TransportCoefficients(; η, ζ, κQ, τε, τP, τQ, L=1.0)
@@ -50,5 +50,27 @@ function conformal_frame_PMP(e::Real)
     # (these reproduce the reference's frame; full mapping finalized vs synthesis).
     return TransportCoefficients(η=η, ζ=0.0, κQ=χ, τε=λ, τP=λ, τQ=χ, L=1.0)
 end
+
+"""
+    shum_frame_speeds(ŝ, â, q̂, η̂, ζ̂, cs) -> (c0, c_plus, c_minus)
+
+Flat-space BDNK characteristic speeds in the Shum et al. (2509.15303 eqs.67–71)
+spherical-Cowling frame parametrization (V̂ = (4/3)η̂ + ζ̂):
+  c0  = cs √(q̂ η̂ / (â V̂))
+  c±  = cs √{ [â(1+ŝ)+q̂ ± √(q̂² + â²(4q̂+(ŝ-1)²) + 2â q̂(1+ŝ))] / (2â) }
+Production frame (ŝ,â,q̂)=(1,1,0.999) gives c₊=√3 cs, c₋≈0.0183 cs.
+"""
+function shum_frame_speeds(ŝ::Real, â::Real, q̂::Real, η̂::Real, ζ̂::Real, cs::Real)
+    V̂ = (4/3)*η̂ + ζ̂
+    c0 = cs * sqrt(q̂*η̂/(â*V̂))
+    disc = q̂^2 + â^2*(4q̂ + (ŝ-1)^2) + 2*â*q̂*(1+ŝ)
+    base = â*(1+ŝ) + q̂
+    cp = cs * sqrt((base + sqrt(disc))/(2â))
+    cm = cs * sqrt((base - sqrt(disc))/(2â))
+    return c0, cp, cm
+end
+
+"""Shum well-posedness + linear stability (eq.71): 0 < q̂ < ŝ."""
+shum_frame_wellposed(ŝ::Real, â::Real, q̂::Real) = (0 < q̂ < ŝ)
 
 end # module Transport
