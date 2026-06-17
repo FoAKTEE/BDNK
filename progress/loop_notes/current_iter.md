@@ -1,26 +1,21 @@
-# Iter 009 — dispatch 10-agent multi-team reproduction workflow
+# Iter 012 — dispatch round-2 10-agent workflow (R5 production + PMP viscous)
 
-**Paper anchors.** Bussières 2604.13208 (R4 axial QNM); Shum 2509.15303 (R5
-nonlinear Cowling); Kovtun/CR/PMP/Pandya (analytic fleet).
+**Dispatched (background workflow wscn1tor1, 10 agents, claude 4.8 ultracode).**
+- **R5 production team** (5 agents): perf-optimize shum_evolve -> resolution
+  ladder (Dr=0.04/0.02/0.01, t_f->8000, background runs) -> FFT + damped-sinusoid
+  fit + Richardson extrapolation -> match Shum F=2.69/H1=4.55/H2=6.36 kHz +
+  decay 0.0011 /M☉ (continuum). The overtones+decay R1 left open.
+- **PMP viscous-1D team** (4 agents): general-EOS ideal-gas viscous BDNK 1D core
+  -> telegrapher / shock-instability+acaus / heat-stationary figures.
+- **R4 ultracompact** (1 agent): plot_ultracompact + eta-mode family + avoided crossing.
+- Agents write self-contained repro/*.jl, run Julia (background for long runs),
+  honest matched/gap, NO fabrication, NO figure gen.
 
-**Dispatched (background workflow wu7k5dafo, 10 agents, claude 4.8 ultracode).**
-- Fleet (4 parallel, analytic): kovtun_sound, is_contrast (CR IS sound speed),
-  pmp_causality (acaus_instab classification), pandya_char (char speeds + cons).
-- **R4 axial-QNM team** (3-stage pipeline): axial wave-eqs (Redondo-Yuste 14a/14b)
-  → shooting+Leaver QNM solver → adversarial verify vs Bussières (10.4884 kHz,
-  29.587 µs).
-- **R5 nonlinear-Cowling team** (3-stage pipeline): general-EOS BDNK recovery +
-  isotropic coords → SSP-RK3 stellar evolution → FFT QNM extraction + verify vs
-  Shum (F=2.69/H1=4.55/H2=6.36 kHz, decay 0.00157 M☉⁻¹).
-- Agents write self-contained repro/*.jl, run Julia, return honest matched/gap;
-  NO fabrication; NO figure gen (orchestrator does figures on matched results).
+**On completion (orchestrator).** Independently re-verify; integrate; generate +
+VLM figures (R5 QNM_plot, PMP plots); append ledgers; commit per substage.
 
-**On completion (orchestrator).** Integrate verified modules into the package;
-generate + VLM the figures for matched reproductions; append knowledge/error
-rows under the DAG nodes (s1b.*, s1c.*, s2.is_contrast); commit per substage.
+**Prior round (wu7k5dafo) results — committed:** R4 axial QNM <0.04% (SOLID,
+re-verified); fleet 4/4 (kovtun_sound, is_contrast, pmp_causality, pandya_char);
+R5 fundamental f_nl=2.70 kHz matched (PRELIM). 11 solid + 4 prelim nodes.
 
-**Loop status.** active:true (ON). gate=continue. The fleet is the iteration's
-work; the loop persists.
-
-**Verifier output (pre-dispatch).** julia test/runtests.jl → all pass (8 solid
-nodes); Kovtun×3 + Bjorken figures VLM-matched.
+**Loop:** active:true (ON), gate=continue.
