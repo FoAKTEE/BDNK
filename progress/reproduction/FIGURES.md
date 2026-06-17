@@ -29,12 +29,14 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | bjorken_plot | Bjorken flow ε(τ) + 4th-order convergence | ✅ bjorken.png (Q→16) |
 | conv_plot | PDE convergence | 🔨 (engine self-conv done) |
 | shockwave_plot / shock_instability | steady shock + instability | 🔨 (general-EOS viscous) |
-| heat_stationary / telegraphers_plot / acaus_instab | heat, telegrapher, acausal-instability tests | 🏗 (general-EOS viscous 1D) |
+| telegraphers_plot | telegrapher dispersion + d'Alembert split | ✅ validated (repro/pmp_telegrapher.jl, match 8.9e-16); 🔨 figure |
+| shock_instability / acaus_instab | shock causality crash classification | ✅ validated (repro/pmp_shock_instab.jl, c+ 2sf); 🔨 figure |
+| heat_stationary | stationary heat profile | ✅ validated (repro/pmp_heat_stationary.jl); 🔨 figure |
 
 ## arXiv:2509.15303 — Shum nonlinear BDNK NS (Cowling)
 | figure | what | status |
 |---|---|---|
-| QNM_plot | QNM spectrum F/H1/H2 | ◐ fundamental f_nl=2.70 kHz matched (-0.2%); overtones/decay need production Dr=0.002 |
+| QNM_plot | QNM spectrum F/H1/H2 | ✅ shum_qnm_reproduction.png — F=2.699/H1=4.551/H2=6.468 kHz vs (2.69,4.55,6.36) <2% |
 | convergence / error_fit / casA_fitting | convergence, decay-rate fits | 🏗 |
 | stable_evol_comparing_tau / stable_evol_resolutions | stable-window evolutions | 🏗 |
 | (TOV M_T=1.4 reproduced) | — | ✅ |
@@ -43,7 +45,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | figure | what | status |
 |---|---|---|
 | complex_plane_2 / plot_combined | axial QNM (f,τ) vs η_c | ✅ axial_qnm_reproduction.png (<0.04% Bussières Table II) |
-| plot_ultracompact | ultracompact w-modes | 🔨 (solver ready) |
+| plot_ultracompact | ultracompact trapped w-modes + η-mode | ✅ validated (repro/axial_ultracompact.jl, 6-mode ladder C=0.44); 🔨 figure |
 | (EOS1 M=1.27/R=8.86 reproduced) | — | ✅ |
 
 ## arXiv:2311.13027 — Chabanov–Rezzolla (bulk-viscous BNS merger)
