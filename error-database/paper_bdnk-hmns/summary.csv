@@ -11,3 +11,5 @@ timestamp,paper,task_id,node_id,node_seq,iteration,git_commit,stage,domain,chang
 2026-06-17T10:07:50+00:00,bdnk-hmns,1C,s1c.imex,1,6,9c62371,validation,numerical,structural,"Conformal evolution self-convergence (3-grid Richardson) order 3.66, ordered 2nd-5th",convergence order,3.66,2.0,True,pass,20.0
 2026-06-17T10:11:46+00:00,bdnk-hmns,STEP0,step0.bjorken,1,7,f7dad49,validation,numerical,structural,PMP Bjorken inviscid RK4 Q→16 + analytic match + diagnostic identity,diagnostic max dev,4.4e-16,1e-12,True,pass,10.0
 2026-06-17T10:23:19+00:00,bdnk-hmns,FIG,fig.kovtun,1,8,b9ae736,validation,numerical,structural,"Kovtun 3 figures (cvphi, reshear, imshear) reproduced + VLM dual-checked; stability Im ω≤0",max Im ω,0.0,1e-10,True,pass,15.0
+2026-06-17T12:01:45+00:00,bdnk-hmns,REPRO,s1b.qnm_freqdomain,1,10,b6b3cd5,validation,numerical,structural,"R4 axial w-mode (f,τ) reproduced <0.04% (re-verified)",max Δ,0.0004,0.01,True,pass,60.0
+2026-06-17T12:01:45+00:00,bdnk-hmns,REPRO,s2.is_contrast,1,10,b6b3cd5,validation,numerical,structural,IS causality-fixed c_s'^2=0.9 exact,res,1e-16,1e-10,True,pass,60.0
