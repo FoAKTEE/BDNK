@@ -1,0 +1,26 @@
+# --- external reference artifacts (own git / large / copyright: local-only) ---
+/ref-code/
+/ref-paper/sources/
+# the methodology tool is a separate repo with its own remote; used locally
+/phys-agentic-loop/
+
+# --- rendered / derived outputs ---
+/human-read/
+
+# --- Julia figure environment (heavy CairoMakie deps) + logs ---
+/code/BDNKStar/viz/Manifest.toml
+/code/BDNKStar/viz/install.log
+
+# --- simulation data / scratch ---
+**/datafiles/
+*.h5
+*.hdf5
+
+# --- coverage / build / os ---
+*.cov
+*.jl.*.cov
+/.coverage
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
