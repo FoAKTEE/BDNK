@@ -37,7 +37,8 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | figure | what | status |
 |---|---|---|
 | QNM_plot | QNM spectrum F/H1/H2 | ✅ shum_qnm_reproduction.png — F=2.699/H1=4.551/H2=6.468 kHz vs (2.69,4.55,6.36) <2% |
-| convergence / error_fit / casA_fitting | convergence, decay-rate fits | 🏗 |
+| convergence / error_fit | QNM continuum convergence | ✅ r5_convergence_reproduction.png (F/H1/H2 <1.4%; decay [HOLE] needs finer Δr ladder) |
+| casA_fitting | decay-rate fit | 🏗 (needs 4-Δr ladder) |
 | stable_evol_comparing_tau / stable_evol_resolutions | stable-window evolutions | 🏗 |
 | (TOV M_T=1.4 reproduced) | — | ✅ |
 
