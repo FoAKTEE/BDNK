@@ -45,7 +45,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | figure | what | status |
 |---|---|---|
 | complex_plane_2 / plot_combined | axial QNM (f,τ) vs η_c | ✅ axial_qnm_reproduction.png (<0.04% Bussières Table II) |
-| plot_ultracompact | ultracompact trapped w-modes + η-mode | ✅ validated (repro/axial_ultracompact.jl, 6-mode ladder C=0.44); 🔨 figure |
+| plot_ultracompact | ultracompact trapped w-modes (ℓ=2 ladder vs 𝒞) | ✅ ultracompact_reproduction.png (2→6 ladder, viscous damping); ω(ℓ)-sweep view pending |
 | (EOS1 M=1.27/R=8.86 reproduced) | — | ✅ |
 
 ## arXiv:2311.13027 — Chabanov–Rezzolla (bulk-viscous BNS merger)
