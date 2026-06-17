@@ -11,7 +11,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | piccvphi | c_v(φ) moving-fluid phase velocity (c₀=½) | ✅ kovtun_cvphi.png |
 | picreshearv09 | shear-channel Re ω(k), v₀=0.9, θ/η=2 | ✅ kovtun_reshearv09.png |
 | picimshearv09 | shear-channel Im ω(k) (stability) | ✅ kovtun_imshearv09.png |
-| picresoundv09 / picimsoundv09 | sound-channel Re/Im ω(k) (quartic F_sound) | ✅ validated (repro/kovtun_sound.jl: Im ω≤0); 🔨 figure |
+| picresoundv09 / picimsoundv09 | sound-channel Re/Im ω(k) (quartic F_sound) | ✅ kovtun_{re,im}soundv09.png (fan within light cone; Im ω≤0 stable) |
 | piccsGs09 / piccsGs01 | sound speed vs G_s | 🔨 |
 | picstab / picstabcaus | stable / causal frame region | 🔨 |
 
