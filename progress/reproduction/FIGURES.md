@@ -31,7 +31,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | shockwave_plot / shock_instability | steady shock + instability | 🔨 (general-EOS viscous) |
 | telegraphers_plot | telegrapher heat→wave transition | ✅ pmp_telegrapher_reproduction.png (transition+ordering; split verified 1.000 in repro) |
 | shock_instability / acaus_instab | shock causality crash classification | ✅ pmp_shock_reproduction.png (c₊(τ̂); crash at τ̂=0.25 acausal & τ̂=3 v>c₊); v(x) profiles in repro |
-| heat_stationary | stationary heat profile | ✅ validated (repro/pmp_heat_stationary.jl); 🔨 figure |
+| heat_stationary | closed-form ε̈ (σ̂=0 stationary; σ̂=1/3 localized) | ✅ pmp_heat_reproduction.png; evolved |ε̇| in repro |
 
 ## arXiv:2509.15303 — Shum nonlinear BDNK NS (Cowling)
 | figure | what | status |
