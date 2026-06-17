@@ -50,7 +50,8 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 ## arXiv:2604.13208 — Bussières axial viscous NS
 | figure | what | status |
 |---|---|---|
-| complex_plane_2 / plot_combined | axial QNM (f,τ) vs η_c | ✅ axial_qnm_reproduction.png (<0.04% Bussières Table II) |
+| plot_combined | axial QNM (f,τ) vs η_c | ✅ axial_qnm_reproduction.png (<0.04% Table II) |
+| complex_plane_2 (frame A1) | axial w-mode (f,τ) viscous trajectory | ✅ axial_qnm_trajectory.png — continuous η_c sweep 3e29→1e31, curve through both Table-II anchors (<0.04%) [validated-frame analogue; exact B1/A2 config not extractable] |
 | plot_ultracompact | ultracompact trapped w-modes ω(ℓ) sweep | ✅ ultracompact_lsweep.png — R=2.60M full match BOTH panels (ωR+ωI, ℓ=2-6); R=2.50/2.45 partial; 10 modes <8% (narrow deep-well modes at highest 𝒞 resist automated hunting) + ultracompact_reproduction.png (ℓ=2 ladder) |
 | (EOS1 M=1.27/R=8.86 reproduced) | — | ✅ |
 
