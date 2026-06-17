@@ -30,7 +30,7 @@ using ..Numerics
 
 export AbstractEOS, BarotropicEOS, GeneralEOS,
        PolytropeEnergy, ShumPolytrope, IdealGas, TabulatedBarotrope, tabulate,
-       pressure, sound_speed2, energy_from_pressure,
+       pressure, sound_speed2, d2pde2, energy_from_pressure,
        dpdrho_eps, dpdeps_rho, specific_enthalpy, total_energy_density,
        temperature, is_thermodynamically_valid, apply_floor
 
@@ -49,6 +49,8 @@ end
 @inline pressure(eos::PolytropeEnergy, e::Real) = eos.κ * e^(1 + 1/eos.n)
 # cs² = dp/de = (1 + 1/n) κ e^{1/n} = (1 + 1/n) p/e
 @inline sound_speed2(eos::PolytropeEnergy, e::Real) = (1 + 1/eos.n) * eos.κ * e^(1/eos.n)
+# d²p/de² = (1+1/n)(1/n) κ e^{1/n - 1}  (needed for cs'(r) in the radial modes)
+@inline d2pde2(eos::PolytropeEnergy, e::Real) = (1 + 1/eos.n) * (1/eos.n) * eos.κ * e^(1/eos.n - 1)
 @inline energy_from_pressure(eos::PolytropeEnergy, p::Real) = (p / eos.κ)^(eos.n/(eos.n + 1))
 
 # ---------------------------------------------------------------------------

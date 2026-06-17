@@ -24,6 +24,7 @@ include("transport/Transport.jl")
 include("transport/Causality.jl")
 include("recovery/Recovery.jl")
 include("conformal/ConformalBDNK.jl")
+include("perturbations/RadialModes.jl")
 
 using .Numerics
 using .Units
@@ -33,6 +34,7 @@ using .Transport
 using .Causality
 using .Recovery
 using .ConformalBDNK
+using .RadialModes
 
 # Re-export the STEP-0 public surface.
 export Numerics, Units, EquationOfState, Transport, Causality, Recovery
@@ -54,5 +56,7 @@ export prim2cons_barotropic, cons2prim_barotropic,
 # Conformal BDNK (flat-space reference)
 export ConformalFrame, pmp_luminal_frame, rankine_hugoniot,
        recover_time_derivs
+# Radial perturbations (STAGE 1A)
+export radial_cowling_spectrum, hz_per_invkm
 
 end # module BDNKStar
