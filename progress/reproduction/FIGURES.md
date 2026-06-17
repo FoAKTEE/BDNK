@@ -37,7 +37,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 ## arXiv:2509.15303 — Shum nonlinear BDNK NS (Cowling)
 | figure | what | status |
 |---|---|---|
-| QNM_plot | QNM spectrum F/H1/H2 | ✅ shum_qnm_reproduction.png — F=2.699/H1=4.551/H2=6.468 kHz vs (2.69,4.55,6.36) <2% |
+| QNM_plot + decay | QNM spectrum F/H1/H2 + 1/τ decay | ✅ shum_qnm_reproduction.png + shum_decay.png (1/τ_l=0.00209/M_⊙ within 30% of paper per-Δr 0.0016–0.0019; MATCHED_TARGET=true) — F=2.699/H1=4.551/H2=6.468 kHz vs (2.69,4.55,6.36) <2% |
 | convergence / error_fit | QNM continuum convergence | ✅ r5_convergence_reproduction.png (F/H1/H2 <1.4%; decay [HOLE] needs finer Δr ladder) |
 | casA_fitting | decay-rate fit | 🏗 (needs 4-Δr ladder) |
 | stable_evol_comparing_tau / stable_evol_resolutions | stable-window evolutions | 🏗 |
