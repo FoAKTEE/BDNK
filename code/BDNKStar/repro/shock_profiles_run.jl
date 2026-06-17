@@ -10,7 +10,7 @@ const ID1 = (εL=1.0, vL=0.9, nL=1.0, εR=11.5174, vR=0.354727, nR=5.44212, w=10
 _sherf(x) = (t=1/(1+0.3275911*abs(x)); y=1-(((((1.061405429t-1.453152027)t)+1.421413741)t-0.284496736)t+0.254829592)t*exp(-x^2); x≥0 ? y : -y)
 _uv(v) = v/sqrt(1-v^2)
 
-function init_shock(fr; N=513, xmin=-100.0, xmax=100.0, cfl=0.1, εL,vL,nL,εR,vR,nR,w)
+function init_shock(fr; N=1025, xmin=-100.0, xmax=100.0, cfl=0.1, εL,vL,nL,εR,vR,nR,w)
     x=collect(range(xmin,xmax;length=N)); dx=x[2]-x[1]; z=zeros(N)
     ε=similar(x); n=similar(x); u=similar(x)
     for i in 1:N
@@ -46,5 +46,5 @@ function run_save(τh, T, fname)
 end
 
 run_save(3.0, 27.0,  joinpath(@__DIR__,"shock_prof_t3.txt"))
-run_save(1.5, 100.0, joinpath(@__DIR__,"shock_prof_t1p5.txt"))
+run_save(1.5, 80.0, joinpath(@__DIR__,"shock_prof_t1p5.txt"))
 println("SHOCK_PROFILES_DONE")
