@@ -1,3 +1,4 @@
 timestamp,paper,task_id,node_id,node_seq,iteration,git_commit,stage,domain,change_type,change_summary,metric.name,metric.value,metric.threshold,metric.pass,pass_fail,wall_clock_seconds
 2026-06-17T08:26:09+00:00,bdnk-hmns,STEP0,step0.con2prim_ideal,1,1,835faae,validation,numerical,structural,STEP 0 prim<->cons round-trip across polytrope/ideal/tabulated + BDNK frozen,round_trip_max_rel_err,1.2e-14,1e-10,True,pass,5.0
 2026-06-17T08:34:05+00:00,bdnk-hmns,STEP0,step0.con2prim_ideal,2,1,42821d3,validation,numerical,structural,"Shum Γ=2 EOS round-trip + STEP 0 validation figure (3 panels, log scale)",round_trip_max_rel_err,4.3e-15,1e-10,True,pass,8.0
+2026-06-17T08:43:59+00:00,bdnk-hmns,1A,s1a.tov_background,1,2,5166645,validation,numerical,structural,TOV RK4 reproduce Bussières EOS1 M-R + convergence + Schwarzschild exterior,abs(M-1.27),0.0036,0.01,True,pass,6.0

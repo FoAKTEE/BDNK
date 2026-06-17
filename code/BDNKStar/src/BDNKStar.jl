@@ -19,6 +19,7 @@ module BDNKStar
 include("Numerics.jl")
 include("Units.jl")
 include("eos/EquationOfState.jl")
+include("tov/TOV.jl")
 include("transport/Transport.jl")
 include("transport/Causality.jl")
 include("recovery/Recovery.jl")
@@ -26,6 +27,7 @@ include("recovery/Recovery.jl")
 using .Numerics
 using .Units
 using .EquationOfState
+using .TOV
 using .Transport
 using .Causality
 using .Recovery
@@ -38,6 +40,8 @@ export AbstractEOS, BarotropicEOS, GeneralEOS,
        pressure, sound_speed2, energy_from_pressure,
        dpdrho_eps, dpdeps_rho, specific_enthalpy, total_energy_density,
        temperature, is_thermodynamically_valid, apply_floor
+# TOV background
+export TOVStar, solve_tov, mass_solar
 # Transport + causality
 export TransportCoefficients, conformal_frame_PMP,
        characteristic_speeds, causality_flag, is_causal

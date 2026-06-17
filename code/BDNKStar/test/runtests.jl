@@ -4,4 +4,5 @@ using Test
     include("test_eos.jl")
     include("test_recovery.jl")
     include("test_causality.jl")
+    include("test_tov.jl")
 end
