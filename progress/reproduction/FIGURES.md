@@ -19,7 +19,8 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 ## arXiv:2201.12317 — Pandya conformal BDNK (numerical method)
 | figure | what | status |
 |---|---|---|
-| steady_state_fig / shock_comp | steady planar shock | ✅ (engine) conformal_evolution.png; 🔨 exact overlay |
+| steady_state_fig / shock_comp | steady planar shock | ✅ (engine) conformal_evolution.png |
+| gaussian_clump (code validation) | conformal evolution vs reference C code | ✅ conf_overlay.png — Julia engine vs Pandya 1D_conformal_bdnk C code agree to 0.06% (full ε(x,t) evolution) |
 | Conv_plot / kh_conv | convergence | ✅ (engine self-conv); 🔨 exact |
 | CC_plot | WENO5 mixed-deriv commutator ∫∫|∂x∂yξ−∂y∂xξ| | 🔨→✅mechanism (PRELIMINARY: 2D-surrogate, no 2D ref code; ε_W=1e15 machine-floor + decay matched) |
 | eta1_step / kh_vs_eta / rotor_eta_t / Tab_cons | step, Kelvin-Helmholtz, rotor (2D), conservation | 🏗 (2D evolution) |
