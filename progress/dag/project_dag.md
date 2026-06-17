@@ -1,6 +1,6 @@
 # Equation DAG — paper_bdnk-hmns
 
-18 nodes. Legend: ● solid · ◐ preliminary · ○ hypothesis · ✗ blocking · □ future · △ concept-advance. Node badge `k<N>` = knowledge records under the node, `t<N>✗<F>` = trials (F failed). Dashed edge = predecessor outside scope.
+21 nodes. Legend: ● solid · ◐ preliminary · ○ hypothesis · ✗ blocking · □ future · △ concept-advance. Node badge `k<N>` = knowledge records under the node, `t<N>✗<F>` = trials (F failed). Dashed edge = predecessor outside scope.
 
 ```mermaid
 flowchart TD
@@ -12,16 +12,19 @@ flowchart TD
   n_s1a_radial_eig["◐ <b>s1a.radial_eig</b> · k2 t1<br/>Radial Cowling eigensolver (NSO A0/A1/A2 operator); spect…"]:::preliminary
   n_s1a_heat_criterion["◐ <b>s1a.heat_criterion</b> · k2 t1<br/>Reproduce CY heat-conduction criterion c_s²−c_n²≥0: ideal…"]:::preliminary
   n_s1b_axial_wave_eqs["● <b>s1b.axial_wave_eqs</b> · k2<br/>Axial coupled wave eqs (Redondo-Yuste 2411.16841 14a/14b;…"]:::solid
-  n_s1b_qnm_freqdomain["● <b>s1b.qnm_freqdomain</b> · k2 t1<br/>REPRODUCE Bussières 2604.13208 ℓ=2 w-mode (f,τ) <0.04%: η…"]:::solid
+  n_s1b_qnm_freqdomain["● <b>s1b.qnm_freqdomain</b> · k4 t1<br/>R4 ultracompact: trapped w-modes C=0.40,0.42,0.44; ladder…"]:::solid
   n_s1c_hrsc_core["◐ <b>s1c.hrsc_core</b> · k2 t1<br/>Flat-space conformal BDNK evolution engine (WENO5+KT+Heun…"]:::preliminary
-  n_s1c_imex["● <b>s1c.imex</b> · k2 t1<br/>Time integration + self-convergence: Heun(RK2) on WENO5 c…"]:::solid
-  n_s1c_qnm_extract["◐ <b>s1c.qnm_extract</b> · k2 t1✗1<br/>R5 nonlinear stellar Cowling BDNK (Shum): recovery+isotro…"]:::preliminary
+  n_s1c_imex["● <b>s1c.imex</b> · k3 t1<br/>R5 production engine shum_evolve_opt.jl: optimized SSP-RK…"]:::solid
+  n_s1c_qnm_extract["◐ <b>s1c.qnm_extract</b> · k2 t2✗1<br/>R5 nonlinear stellar Cowling BDNK (Shum): recovery+isotro…"]:::preliminary
   n_s2_gr_coupling["□ <b>s2.gr_coupling</b> · k1<br/>Fork A: couple BDNK hydro to 1+1D dynamical GR (harmonic … <br/><i>Bjorken EOM (eq.50, Milne), Rankine-Hugoniot (steady shock), Steady-shock erf initial data</i>"]:::future
   n_s2_is_contrast["● <b>s2.is_contrast</b> · k2 t1<br/>REPRODUCE Chabanov-Rezzolla IS causality-fixed sound spee…"]:::solid
   n_s3_cowling_3p1["□ <b>s3.cowling_3p1</b> · k1<br/>Fork B: 3+1D Cowling non-radial BDNK modes; cubed-sphere … <br/><i>T_munu (eq.16), constitutive (eqs.17-19), Velocity ansatz, Vorticity diagnostic</i>"]:::future
   n_s4_production["□ <b>s4.production</b> · k1<br/>Production runs: realistic tabulated EOS, physical transp… <br/><i>Eq.58 EOS, Frame choice (eq.41-43)</i>"]:::future
   n_step0_bjorken["● <b>step0.bjorken</b> · k1 t1<br/>Reproduce PMP Bjorken inviscid flow (2209.09265): RK4 dε/…"]:::solid
   n_fig_kovtun["● <b>fig.kovtun</b> · k2 t1<br/>Kovtun sound channel (picresoundv09/picimsoundv09): Im ω≤…"]:::solid
+  n_fig_pmp_telegrapher["● <b>fig.pmp_telegrapher</b> · k1 t1<br/>REPRODUCE PMP telegraphers_plot: BDNK heat modes->telegra…"]:::solid
+  n_fig_pmp_shock["● <b>fig.pmp_shock</b> · k1 t1<br/>REPRODUCE PMP shock_instability+acaus_instab: tau_hat=1.5…"]:::solid
+  n_fig_pmp_heat["● <b>fig.pmp_heat</b> · k1<br/>REPRODUCE PMP heat_stationary: sigma=0->zero heat flux ex…"]:::solid
   n_step0_eos --> n_step0_causality
   n_step0_con2prim_ideal --> n_step0_bdnk_recovery
   n_step0_causality --> n_step0_bdnk_recovery
@@ -31,7 +34,7 @@ flowchart TD
   n_s1a_radial_eig --> n_s1a_heat_criterion
   n_s1a_tov_background --> n_s1b_axial_wave_eqs
   n_step0_causality --> n_s1b_axial_wave_eqs
-  n_s1b_axial_wave_eqs --> n_s1b_qnm_freqdomain
+  n_s1b_qnm_freqdomain --> n_s1b_qnm_freqdomain
   n_step0_bdnk_recovery --> n_s1c_hrsc_core
   n_s1a_tov_background --> n_s1c_hrsc_core
   n_s1c_hrsc_core --> n_s1c_imex
@@ -45,6 +48,9 @@ flowchart TD
   n_step0_eos --> n_step0_bjorken
   n_step0_bdnk_recovery --> n_step0_bjorken
   n_step0_causality --> n_fig_kovtun
+  n_step0_causality --> n_fig_pmp_telegrapher
+  n_step0_causality --> n_fig_pmp_shock
+  n_step0_causality --> n_fig_pmp_heat
   classDef solid fill:#e6ffed,stroke:#28a745,color:#000;
   classDef preliminary fill:#fff8e1,stroke:#d4a017,color:#000;
   classDef hypothesis fill:#e7f0ff,stroke:#4977c7,color:#000;
