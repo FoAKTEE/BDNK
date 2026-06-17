@@ -29,7 +29,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | bjorken_plot | Bjorken flow ε(τ) + 4th-order convergence | ✅ bjorken.png (Q→16) |
 | conv_plot | PDE convergence | 🔨 (engine self-conv done) |
 | shockwave_plot / shock_instability | steady shock + instability | 🔨 (general-EOS viscous) |
-| telegraphers_plot | telegrapher dispersion + d'Alembert split | ✅ validated (repro/pmp_telegrapher.jl, match 8.9e-16); 🔨 figure |
+| telegraphers_plot | telegrapher heat→wave transition | ✅ pmp_telegrapher_reproduction.png (transition+ordering; split verified 1.000 in repro) |
 | shock_instability / acaus_instab | shock causality crash classification | ✅ validated (repro/pmp_shock_instab.jl, c+ 2sf); 🔨 figure |
 | heat_stationary | stationary heat profile | ✅ validated (repro/pmp_heat_stationary.jl); 🔨 figure |
 

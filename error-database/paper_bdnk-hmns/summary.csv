@@ -17,3 +17,4 @@ timestamp,paper,task_id,node_id,node_seq,iteration,git_commit,stage,domain,chang
 2026-06-17T16:10:51+00:00,bdnk-hmns,REPRO2,s1c.qnm_extract,2,13,c97b951,validation,numerical,structural,R5 QNM F/H1/H2 <2% + finite decay (reverified),max Δ,0.017,0.02,True,pass,120.0,,,,,
 2026-06-17T16:10:51+00:00,bdnk-hmns,REPRO2,fig.pmp_telegrapher,1,13,c97b951,validation,numerical,structural,PMP telegrapher dispersion + d'Alembert split,match,8.9e-16,1e-10,True,pass,120.0,,,,,
 2026-06-17T16:10:51+00:00,bdnk-hmns,REPRO2,fig.pmp_shock,1,13,c97b951,validation,numerical,structural,PMP shock/acaus causality classification,c+,0.01,0.05,True,pass,120.0,,,,,
+2026-06-17T17:08:27+00:00,bdnk-hmns,FIG,fig.pmp_telegrapher,2,15,403ea6d,validation,numerical,structural,PMP telegraphers_plot figure: heat->wave transition reproduced (fixed RK2->stable leapfrog after instability),transition+ordering,match,match,True,pass,30.0,,,,,
