@@ -3,3 +3,4 @@ timestamp,paper,task_id,node_id,node_seq,iteration,git_commit,stage,domain,chang
 2026-06-17T08:34:05+00:00,bdnk-hmns,STEP0,step0.con2prim_ideal,2,1,42821d3,validation,numerical,structural,"Shum Γ=2 EOS round-trip + STEP 0 validation figure (3 panels, log scale)",round_trip_max_rel_err,4.3e-15,1e-10,True,pass,8.0
 2026-06-17T08:43:59+00:00,bdnk-hmns,1A,s1a.tov_background,1,2,5166645,validation,numerical,structural,TOV RK4 reproduce Bussières EOS1 M-R + convergence + Schwarzschild exterior,abs(M-1.27),0.0036,0.01,True,pass,6.0
 2026-06-17T08:46:59+00:00,bdnk-hmns,STEP0,step0.bdnk_recovery,1,2,8b65a0e,validation,numerical,structural,"Conformal BDNK recovery (compute_xiD/uxD) + RH steady shock εR=4.4074,vR=0.41667",recovery round-trip err,1.8e-16,1e-09,True,pass,4.0
+2026-06-17T08:51:53+00:00,bdnk-hmns,1A,s1a.tov_background,2,2,6062c9d,validation,numerical,scalar,Reproduce Shum M_T=1.4 M_sun (unit convention M_sun=G=c=1),abs(M-1.4),0.00016,0.02,True,pass,3.0

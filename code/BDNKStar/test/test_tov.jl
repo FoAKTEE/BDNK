@@ -15,6 +15,16 @@ const G2KM = BDNKStar.Units.gram_per_cm3_to_km_minus2
     @test isapprox(R, 8.86; atol=0.02)     # paper value 8.86 km
 end
 
+@testset "TOV: reproduce Shum M_T=1.4 M☉ (M☉=G=c=1 units)" begin
+    # Shum et al. 2509.15303: cold Γ=2 EOS p=κρ², κ=100, ρ0c=0.00128 M☉⁻²
+    # In geometric M☉=G=c=1 units the raw TOV mass IS the mass in solar masses.
+    eos = ShumPolytrope(100.0)
+    ρ0c = 0.00128; εc = ρ0c + 100*ρ0c^2
+    st = solve_tov(eos, εc; h=2e-4)
+    @info "Shum reproduction" M_Msun=st.M R_Msun=st.R
+    @test isapprox(st.M, 1.4; atol=0.02)        # paper value M_T=1.4 M☉
+end
+
 @testset "TOV: RK4 convergence + physical sanity" begin
     eos = PolytropeEnergy(100.0, 1.0)
     εc = 3e15 * G2KM
