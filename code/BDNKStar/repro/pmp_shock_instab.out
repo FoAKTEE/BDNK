@@ -1,0 +1,123 @@
+==============================================================================
+PMP 2209.09265 — general-EOS ideal-gas VISCOUS BDNK 1D engine
+==============================================================================
+
+[V3a] ideal-gas microphysics  (Γ=4/3, m=1, ε=1, n=0.1)
+  P=(Γ-1)(ε-mn)        = 0.3000000000   [eq:EOS]
+  e=ε/(mn)-1           = 9.0000000000   (ε=mn(1+e) round trip: 0.000e+00)
+  ρ=ε+P                = 1.3000000000
+  c_s²=ΓP/ρ            = 0.3076923077   [eq:cs_sq]
+  ω=mnP/(ερ)           = 0.0230769231   [eq:omega]
+  α=(Γ-1)/c_s²         = 1.0833333333   [eq:alpha]
+  κ_ε                  = -187.7777777778   [eq 425]
+  κ_n                  = 183.4444444444   [eq 426]
+  κ_s=κ_ε+κ_n          = -4.3333333333  vs eq 441 = -4.3333333333   |Δ|=4.53e-14
+
+[V3b] frame identity  δ ≡ β_ε ρ + β_n n − ρc_s²τ_Q − σκ_s = 0  [line 963]
+  Γ=1.33 m=1 V̂=0.1 σ̂=0 τ̂=1 (ε=1,n=0.1): δ=-6.939e-18
+  Γ=1.33 m=0.1 V̂=0.133 σ̂=0.333 τ̂=1.5 (ε=1,n=1): δ=-1.355e-17
+  Γ=1.2 m=0.5 V̂=0.2 σ̂=0.2 τ̂=2 (ε=0.8,n=0.3): δ=-3.605e-18
+  Γ=1.5 m=1 V̂=1 σ̂=0.1 τ̂=3 (ε=2,n=0.7): δ=-1.821e-16
+  max|δ| = 1.821e-16  (must be ~round-off)
+
+[V3c] characteristic speeds c_±, c_1  vs  A,B,C quadratic & assembled tensor
+  Γ=1.33 σ̂=0 τ̂=2: c_+=0.85091 c_-=0.26613 c_1=0.33968 | quad|Δc_±²|=2.2e-16,4.2e-17 | symbol c_+=0.85091 Δ=1.3e-10
+  Γ=1.33 σ̂=0.333 τ̂=1.5: c_+=0.92778 c_-=0.30808 c_1=0.39223 | quad|Δc_±²|=3.3e-16,9.7e-17 | symbol c_+=0.92778 Δ=3.2e-10
+  Γ=1.2 σ̂=0.2 τ̂=2.5: c_+=0.59516 c_-=0.20067 c_1=0.22433 | quad|Δc_±²|=1.7e-16,0.0e+00 | symbol c_+=0.59516 Δ=7.2e-11
+
+==============================================================================
+[V1] constant (equilibrium) state preserved exactly
+==============================================================================
+  (ε=1,n=0.1,u=0) 400 steps:  max|Δε|=0.00e+00 |Δn|=0.00e+00 |Δu|=4.22e-19 |ΔTtt|=0.00e+00 |ΔTtx|=0.00e+00
+  (ε=2.5,n=0.7,u=0) 400 steps:  max|Δε|=0.00e+00 |Δn|=0.00e+00 |Δu|=3.82e-19 |ΔTtt|=0.00e+00 |ΔTtx|=0.00e+00
+  (ε=1,n=0.1,u=0.4) 400 steps:  max|Δε|=1.11e-16 |Δn|=0.00e+00 |Δu|=5.55e-17 |ΔTtt|=0.00e+00 |ΔTtx|=0.00e+00
+  CONSTANT STATE exact (≲1e-11): true
+
+==============================================================================
+[V2] inviscid ideal-gas Bjorken limit (reuse Bjorken.bjorken_*)
+==============================================================================
+  EOS consistency: pressure_eos(ε,n0/τ) vs bjorken_pressure(ε,τ) at τ=3, ε=0.5: 0.000e+00
+  τ: 1.0 → 10.0,  ε0=2.00000000
+  analytic ε(τf)               = 0.1464158883   [eq:inviscid_bjorken]
+  engine-EOS RK4 ε(τf)         = 0.1464158883   |Δ|=7.55e-15
+  package bjorken_evolve_rk4   = 0.1464158883   |Δ|=7.55e-15
+  diagnostic ε'+Γε/τ: num=3.333e-03  exact=3.333e-03  |Δ|=1.30e-18
+
+==============================================================================
+SUMMARY
+  [V3a] ideal-gas microphysics round trips : true
+  [V3b] frame identity δ=0                  : true   max|δ|=1.8214596497756474e-16
+  [V3c] char speeds (A,B,C quad & symbol)   : true
+  [V1]  constant state preserved exactly    : true
+  [V2]  inviscid Bjorken limit recovered    : true
+  ALL PASS: true
+==============================================================================
+
+##############################################################################
+#  PMP 2209.09265  —  fig:shock_instability  +  fig:acaus_instab
+#  dynamical BDNK shockwave evolution; causality classification
+##############################################################################
+
+==============================================================================
+[FIG shock_instability]  L={ε,v,n}={1,0.9,1} ⇒ R={11.5174,0.354727,5.44212}
+  Γ=4/3, m=0.1, V̂=4/3, σ̂=0, w=10   (Table line 556, eq:shockwave_params)
+==============================================================================
+
+  τ̂=1.50: c_+∈[0.9378,0.9491]  v_max=0.9000  (#cells v>c_+ : 0) → v<c_+ everywhere ⇒ expect STABLE
+    evolved to T=300: status=STABLE (tcrash=300)
+    TV(v): 0.5453 → 0.8610   max|ε̇|: 1.899e-01 → 3.128e+00   max|u̇|: 1.302e-02 → 1.920e-01
+    final v_max=0.9000  ε_max=12.0104
+
+  τ̂=3.00: c_+∈[0.7568,0.7683]  v_max=0.9000  (#cells v>c_+ : 497) → v>c_+ somewhere  ⇒ expect UNSTABLE
+    evolved to T=250: status=CRASH(NaN) (tcrash=40)
+    TV(v): 0.5453 → NaN   max|ε̇|: 1.651e-01 → NaN   max|u̇|: 3.570e-02 → NaN
+    final v_max=NaN  ε_max=NaN
+
+==============================================================================
+[FIG acaus_instab]  L={ε,v,n}={1,0.6,1} ⇒ R={1.33795,0.514414,1.25027}
+  Γ=4/3, m=0.1, V̂=4/3, σ̂=0, w=10   (Table line 557, eq:shockwave_params)
+==============================================================================
+
+  τ̂=1.50 (λ=0.10): c_+∈[0.9378,0.9393]  v_max=0.6000  → SUBLUMINAL (causal)
+    evolved to T=300: status=STABLE (tcrash=300)
+    TV(v): 0.0856 → 0.0856   max|ε̇|: 2.238e-03 → 2.418e-05   max|u̇|: 1.477e-03 → 1.223e-05
+    final v_max=0.6000  ε_max=1.3379
+    max|ε̇| history: 5.632e-04 → 2.418e-05  (×0.0 over Δt=280)
+
+  τ̂=0.50 (λ=0.10): c_+∈[1.4702,1.4719]  v_max=0.6000  → weakly superluminal
+    evolved to T=300: status=STABLE (tcrash=300)
+    TV(v): 0.0856 → 0.0856   max|ε̇|: 1.324e-02 → 2.460e-05   max|u̇|: 1.092e-02 → 1.231e-05
+    final v_max=0.6000  ε_max=1.3379
+    max|ε̇| history: 5.696e-04 → 2.460e-05  (×0.0 over Δt=280)
+
+  τ̂=0.40 (λ=0.01): c_+∈[1.6269,1.6286]  v_max=0.6000  → weakly superluminal
+    evolved to T=120: status=STABLE (tcrash=120)
+    TV(v): 0.0856 → 0.0882   max|ε̇|: 3.874e-02 → 3.727e-04   max|u̇|: 3.324e-02 → 1.390e-04
+    final v_max=0.6000  ε_max=1.3434
+    max|ε̇| history: 5.712e-04 → 3.727e-04  (×0.7 over Δt=100)
+
+  τ̂=0.25 (λ=0.01): c_+∈[2.0261,2.0282]  v_max=0.6000  → WILDLY superluminal (acausal)
+    evolved to T=120: status=CRASH(NaN) (tcrash=20)
+    TV(v): 0.0856 → NaN   max|ε̇|: 3.492e-02 → NaN   max|u̇|: 2.656e-02 → NaN
+    final v_max=NaN  ε_max=NaN
+
+==============================================================================
+SUMMARY — causality classification of dynamical BDNK shockwaves
+==============================================================================
+
+fig:shock_instability  (L v=0.9, v_max=0.9):
+  τ̂        c_+(min)  class (v vs c_+)       status         verdict
+  1.50     0.9378    v<c_+ (causal-fast)    STABLE         STABLE✓
+  3.00     0.7568    v>c_+ (no steady ODE)  CRASH(NaN)     UNSTABLE✓
+
+fig:acaus_instab  (L v=0.6, v_max=0.6 < c_+ always):
+  τ̂        c_+(min)  frame causality            status         verdict
+  1.50     0.9378    SUBLUMINAL (causal)        STABLE         STABLE✓
+  0.50     1.4702    weakly superluminal        STABLE         STABLE✓
+  0.40     1.6269    weakly superluminal        STABLE         STABLE✓
+  0.25     2.0261    WILDLY superluminal (acausal) CRASH(NaN)     ACAUSAL-UNSTABLE✓
+
+(c_+ matches paper: τ̂=1.5→c_+~0.9, 0.5→~1.5, 0.4→~1.6, 0.25→~2;
+ shock_instability quoted ~0.9 for τ̂=1.5 bottom panel.)
+==============================================================================
+EXIT=0

@@ -1,0 +1,2 @@
+# t  eps_c   (Shum 2509.15303 nonlinear Cowling BDNK, case=smallSB_F2, M_T=1.4)
+0.0  0.0014439437776652786
