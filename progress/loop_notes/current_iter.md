@@ -1,23 +1,23 @@
-# Iter 001 — bootstrap + STEP 0 trunk
+# Iter 003 — radial Cowling eigensolver (STAGE 1A)
 
-**Paper anchor.** Project bootstrap; STEP 0 (shared EOS + primitive recovery).
+**Paper anchor.** Caballero–Yunes 2506.09149 radial sector / NSO.jl
+PerfectFluidCowling A0/A1/A2 operator; DAG node s1a.radial_eig.
 
-**Shipped.**
-- Understanding fan-out (14 sources) → reformulated notes + SYNTHESIS.md.
-- 16-node project DAG (Mermaid), doubly linked to knowledge + error ledgers.
-- Julia pkg `BDNKStar` STEP 0: Units, Numerics(Brent), EOS (PolytropeEnergy,
-  ShumPolytrope, IdealGas, TabulatedBarotrope), Recovery (barotropic/general
-  con2prim + BDNK gradient-frozen), Transport, Causality.
-- STEP 0 validation figure (3 panels, log scale) + VLM-inspected.
-
-**Verifier output.**
-- `julia test/runtests.jl` → 189/189 pass (after Shum add).
-- round-trip max rel err 4.3e-15 (gate 1e-10); tabulated 1e-5→8e-12 (N=25→800).
-- VLM: panel A all EOS ≪ gate; B clean N⁻⁴; C char speeds + τ_P<1 acausal mark.
+**What shipped this iter.**
+- commit 6c2a86b feat(radial): radial Cowling eigensolver.
+- src/perturbations/RadialModes.jl (matrix eigensolver, ξ(0)=0 + Δp=0 BCs);
+  EOS d2pde2; test_radial.jl; viz/radial_modes.jl.
+- error-DB: 1 pass trial under s1a.radial_eig; knowledge: s1a.radial_eig→preliminary.
+- figure radial_modes.png (VLM-ok).
 
 **Next-3 roadmap.**
-1. step0.bdnk_recovery → solid (port conformal compute_xiD/uxD, CrossCheck).
-2. s1a.tov_background (TOV RK4 + implicit-CN cross-check).
-3. s1a.radial_eig + heat_criterion (CY c_s²−c_n²≥0).
+1. s1a.heat_criterion — Caballero–Yunes c_s²−c_n²≥0 (needs 2-param EOS for c_n²).
+2. Cross-validate radial f0 vs NSO.jl run (install Arpack/DiffEq) → s1a.radial_eig solid.
+3. s1b axial wave eqs + QNM (Redondo-Yuste/Bussières); s1c nonlinear Cowling core.
 
-**Research-state delta.** STEP 0 gate accepted; s1a.tov_background now blocking.
+**Simplification flag.** not required (greenfield; modular).
+
+**Verifier output.**
+`julia --project=. test/runtests.jl` → all pass (EOS/recovery/causality/tov/
+conformal/radial). radial spectrum f[kHz]=[5.5032,9.0961,12.5707,16.0148],
+converged 2nd-order (|Δf0|∝N⁻²), all ω²>0 (stable).

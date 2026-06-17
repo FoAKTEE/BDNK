@@ -32,12 +32,24 @@ phys-agentic-loop (Python) is the management/ledger tool.
   s1b.qnm_freqdomain, s1c.hrsc_core, s1c.imex, s1c.qnm_extract, s2.gr_coupling,
   s2.is_contrast, s3.cowling_3p1, s4.production
 
-## Accepted results (gates met)
-1. **STEP 0 round-trip gate** [SOLID]. prim↔cons closes to ≤1e-10 across
-   polytrope / Shum-Γ2 / ideal-gas / tabulated / BDNK-frozen. Measured max
-   4.3e-15. Causality monitor solves the char-speed biquadratic exactly.
-   Evidence: `code/BDNKStar` 189/189 tests; figure `figures/step0_validation.png`.
-   Commits 835faae, (substage-4).
+## Accepted results (gates met) — reproduction program
+1. **STEP 0 round-trip gate** [SOLID]. prim↔cons ≤1e-10 across polytrope /
+   Shum-Γ2 / ideal-gas / tabulated / BDNK-frozen (max 4.3e-15). Causality
+   monitor solves the char-speed biquadratic exactly. Evidence: 189/189 tests;
+   figures/step0_validation.png. Commit 835faae/5166645.
+2. **Conformal BDNK recovery** [SOLID]. compute_xiD/uxD port = solver.c to
+   1.8e-16 (CrossCheck). **RH steady shock** εR=4.40741 (t 4.4074), vR=0.41667.
+   test_conformal.jl. Commit 6062c9d.
+3. **TOV Bussières EOS1** [SOLID]. M=1.2664 M☉ (t 1.27), R=8.8615 km (t 8.86),
+   <0.3%. tov_reproduction.png (VLM). Commit 8b65a0e.
+4. **TOV Shum** [SOLID]. M_T=1.40016 M☉ (t 1.4; M☉=G=c=1 units). Commit 7eeb307.
+5. **Radial Cowling spectrum** [PRELIMINARY]. f0=5.503,f1=9.096,f2=12.571,
+   f3=16.015 kHz; converged 2nd-order; all ω²>0 (stable ⇒ CY bulk/shear stable).
+   radial_modes.png (VLM). NSO exact cross-check [OPEN]. Commit 6c2a86b.
+
+Exact-target validation ledger for the remaining reproductions (Shum QNM
+F=2.69/H1=4.55/H2=6.36 kHz + decay 0.00157; Bussières w-modes; CY heat criterion;
+PMP Bjorken/shock): `progress/reproduction/LEDGER.md` (+ per-paper).
 
 ## Open questions / human decision points (defaults adopted, flagged for confirm)
 - {{EOS_TABLE}}: default Shum analytic Γ=2 κ=100 for 1C trunk; real tabulated EOS
