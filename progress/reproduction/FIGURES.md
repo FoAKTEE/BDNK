@@ -31,7 +31,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 | figure | what | status |
 |---|---|---|
 | bjorken_plot | Bjorken flow ε(τ) + 4th-order convergence | ✅ bjorken.png (Q→16) |
-| conv_plot | PDE convergence | 🔨 (engine self-conv done) |
+| conv_plot | PDE self-convergence Q_N(t) | ⚠ partial: pmp_conv.png — engine verified CLEAN 2nd-order (Q≈2.0, KT flux); reference Q≈4 needs higher-order WENO5 flux [engine-order gap, honest] |
 | shockwave_plot | steady BDNK shock ε/v/n profile | ✅ pmp_shockwave.png — {1,0.8,0.1}_L→{4.44,0.414,0.293}_R (vR/nR match RH; black sharp/green wide) |
 | telegraphers_plot | telegrapher heat→wave transition | ✅ pmp_telegrapher_reproduction.png (transition+ordering; split verified 1.000 in repro) |
 | shock_instability / acaus_instab | shock causality crash classification | ✅ pmp_shock_reproduction.png (c₊(τ̂); crash at τ̂=0.25 acausal & τ̂=3 v>c₊); v(x) profiles in repro |
