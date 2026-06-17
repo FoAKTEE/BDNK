@@ -31,3 +31,8 @@ __pycache__/
 
 # original paper-figure conversions (copyright; VLM comparison only)
 /progress/reproduction/orig_png/
+
+# R5 evolution time series: track only the canonical Dr=0.04 reproduction
+# artifact (the QNM figure's data); ignore the scratch-resolution runs
+code/BDNKStar/repro/r5_eps_*.txt
+!code/BDNKStar/repro/r5_eps_Dr0.04.txt

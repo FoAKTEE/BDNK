@@ -13,8 +13,11 @@ CairoMakie.activate!(type="png")
 outdir = joinpath(@__DIR__, "..", "figures"); isdir(outdir) || mkpath(outdir)
 repo = joinpath(@__DIR__, "..", "repro")
 
-# read (t, eps_c) from the completed Δr=0.04 production run
-data = readlines(joinpath(repo, "r5_eps_Dr0.04.txt"))
+# read (t, eps_c) from the canonical Δr=0.04 production run (tracked artifact).
+# Regenerate if missing:  julia --project=. repro/shum_evolve_opt.jl  (run_shum(0.04, 8000.0))
+datafile = joinpath(repo, "r5_eps_Dr0.04.txt")
+isfile(datafile) || error("missing $datafile — regenerate with repro/shum_evolve_opt.jl run_shum(0.04, 8000.0)")
+data = readlines(datafile)
 rows = [split(l) for l in data if !startswith(l, "#") && !isempty(strip(l))]
 t = [parse(Float64, r[1]) for r in rows]
 e = [parse(Float64, r[2]) for r in rows]
