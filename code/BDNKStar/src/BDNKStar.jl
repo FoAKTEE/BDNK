@@ -63,7 +63,7 @@ export prim2cons_barotropic, cons2prim_barotropic,
 export ConformalFrame, pmp_luminal_frame, rankine_hugoniot,
        recover_time_derivs
 # Conformal flat-space evolution (1C engine)
-export ConfState, init_gaussian, init_smooth_shock, evolve!, energy_density
+export ConfState, init_gaussian, init_smooth_shock, init_step, evolve!, energy_density
 # Radial perturbations (STAGE 1A)
 export radial_cowling_spectrum, hz_per_invkm
 # Bjorken flow (PMP test)

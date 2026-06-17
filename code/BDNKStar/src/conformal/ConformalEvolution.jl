@@ -17,7 +17,7 @@ module ConformalEvolution
 using ..ConformalBDNK
 using ..ConformalBDNK: T_tt, T_tx, T_xx
 
-export ConfState, init_gaussian, init_smooth_shock, evolve!, energy_density
+export ConfState, init_gaussian, init_smooth_shock, init_step, evolve!, energy_density
 
 const NG = 3   # ghost cells per side
 
@@ -184,6 +184,19 @@ function init_smooth_shock(fr::ConformalFrame; N=257, xmin=-200.0, xmax=200.0,
         u=v/sqrt(1-v^2)
         s.ξ[i]=log(ε); s.u[i]=u
         s.Ttt[i]=T_tt(fr,s.ξ[i],u,0,0,0,0); s.Ttx[i]=T_tx(fr,s.ξ[i],u,0,0,0,0)
+    end
+    _update_aux!(s); return s
+end
+
+"""Sharp step (Riemann) ID matching the reference C code: ε=εL for x≤0 else εR, u=0."""
+function init_step(fr::ConformalFrame; N=257, xmin=-200.0, xmax=200.0,
+                   εL=1.0, εR=0.1, cfl=0.1)
+    x=collect(range(xmin,xmax;length=N)); dx=x[2]-x[1]
+    s=_make_state(fr,x,dx,cfl,false)
+    for i in 1:N
+        ε = x[i] <= 0.0 ? εL : εR
+        s.ξ[i]=log(ε); s.u[i]=0.0
+        s.Ttt[i]=T_tt(fr,s.ξ[i],0.0,0,0,0,0); s.Ttx[i]=T_tx(fr,s.ξ[i],0.0,0,0,0,0)
     end
     _update_aux!(s); return s
 end

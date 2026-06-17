@@ -21,6 +21,7 @@ Julia). Status: ✅ done · 🔨 tractable-next · 🏗 large-build · ⛔ infea
 |---|---|---|
 | steady_state_fig / shock_comp | steady planar shock | ✅ conf_shock_overlay.png — Julia vs reference C code <1% (shock sharpens to steady-state, εR=4.4074); engine conformal_evolution.png |
 | gaussian_clump (code validation) | conformal evolution vs reference C code | ✅ conf_overlay.png — Julia engine vs Pandya 1D_conformal_bdnk C code agree to 0.06% (full ε(x,t) evolution) |
+| STEP/Riemann (code validation) | Riemann fan vs reference C code | ✅ conf_step_overlay.png — Julia vs C agree to 4.7e-5% (machine-level; completes Gaussian/shock/STEP triad) |
 | Conv_plot | self-convergence order | ✅ conf_convergence.png — Julia p=1.37 vs C code p=1.34 (coincident error curves; order limited by under-resolved narrow clump) |
 | CC_plot | WENO5 mixed-deriv commutator ∫∫|∂x∂yξ−∂y∂xξ| | 🔨→✅mechanism (PRELIMINARY: 2D-surrogate, no 2D ref code; ε_W=1e15 machine-floor + decay matched) |
 | eta1_step / kh_vs_eta / rotor_eta_t / Tab_cons | step, Kelvin-Helmholtz, rotor (2D), conservation | 🏗 (2D evolution) |
