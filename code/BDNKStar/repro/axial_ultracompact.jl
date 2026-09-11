@@ -44,7 +44,7 @@
 # uniform star; (ii) drivers for the trapped w-modes, η-modes, avoided crossing.
 # ======================================================================
 
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/repro/axial_qnm.jl")
+include(joinpath(@__DIR__, "axial_qnm.jl"))
 using .BDNKStar
 using Printf
 using LinearAlgebra

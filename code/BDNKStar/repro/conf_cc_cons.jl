@@ -17,7 +17,7 @@
 #   eq:gaussian_ID (lines ~1075): eps = A e^{-x^2/w^2}+delta, u^x=0,
 #       A=1, w=25, delta=0.1, L=200, eta0=0.2.
 
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl")
+include(joinpath(@__DIR__, "..", "src", "BDNKStar.jl"))
 using .BDNKStar
 using Printf
 

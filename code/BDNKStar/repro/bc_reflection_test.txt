@@ -1,0 +1,44 @@
+[probe] production outflow, σ_ko=0.02  f-mode peak=1.9131 kHz  finite=true
+
+=== (A1) SURFACE BC sweep  (η̂=0, σ_ko=0.02, Nr=200 Nθ=24) ===
+surface_BC        f_kHz      finite   E_end/E0   |q2|max
+outflow           1.9131   true        1.583   1.201e-04
+dirichlet         1.9128   true        1.583   1.201e-04
+extrap            1.9107   true        1.649   1.201e-04
+copy2             1.9170   true        1.529   1.201e-04
+>> (A1) f-mode spread across SURFACE BCs: min=1.9107 max=1.9170  Δ=0.0063 kHz (0.33%)
+
+=== (A2) KO damping-layer σ_ko sweep  (η̂=0, surface=outflow) ===
+ σ_ko       f_kHz      finite   E_end/E0
+ 0.000      1.9140   true       22.952
+ 0.010      1.9029   true        2.396
+ 0.020      1.9131   true        1.583
+ 0.040      1.9260   true        1.191
+ 0.080      1.9329   true        1.033
+>> (A2) f-mode spread across σ_ko: min=1.9029 max=1.9329  Δ=0.0300 kHz (1.56%)
+
+=== (B) NonRadialModes f/p1: outer match rf=R(1-δ_out), centre r0=R·ε0 ===
+
+-- (B1) outer match radius δ_out  (centre ε0=1e-4 fixed) --
+ δ_out       f_kHz     p1_kHz
+3.0e-02    1.8953    4.2396
+1.0e-02    1.8845    4.1273
+3.0e-03    1.8830    4.1086
+1.0e-03    1.8829    4.1067
+3.0e-04    1.8829    4.1065
+1.0e-04    1.8829    4.1065
+>> (B1) f-mode spread vs δ_out:  Δ=0.0124 kHz (0.659%)
+>> (B1) p1-mode spread vs δ_out: Δ=0.1331 kHz (3.221%)
+
+-- (B2) centre start ε0  (outer δ_out=1e-3 fixed) --
+  ε0        f_kHz     p1_kHz
+1.0e-02    1.8829    4.1067
+3.0e-03    1.8829    4.1067
+1.0e-03    1.8829    4.1067
+3.0e-04    1.8829    4.1067
+1.0e-04    1.8829    4.1067
+3.0e-05    1.8829    4.1067
+>> (B2) f-mode spread vs centre ε0:  Δ=0.0000 kHz (0.000%)
+>> (B2) p1-mode spread vs centre ε0: Δ=0.0000 kHz (0.000%)
+
+DONE.

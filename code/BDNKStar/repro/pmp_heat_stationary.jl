@@ -49,7 +49,7 @@
 # is loaded a single time (a second top-level include of BDNKStar.jl would
 # create a duplicate module and make Bjorken exports ambiguous). All BDNKStar
 # functionality is therefore available transitively via the engine include.
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/repro/pmp_viscous_core.jl")
+include(joinpath(@__DIR__, "pmp_viscous_core.jl"))
 using .BDNKStar
 using Printf
 

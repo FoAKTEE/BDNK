@@ -21,7 +21,7 @@
 
     PACKAGE REUSE per task: load the shared trunk first.
 =#
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl")
+include(joinpath(@__DIR__, "..", "src", "BDNKStar.jl"))
 using .BDNKStar
 using .BDNKStar.EquationOfState: ShumPolytrope, pressure, sound_speed2, energy_from_pressure
 using .BDNKStar.TOV: TOVStar, solve_tov

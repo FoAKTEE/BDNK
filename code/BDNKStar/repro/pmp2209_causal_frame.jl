@@ -19,7 +19,7 @@
 #   Classification: τ̂ = 0.25, 0.4, 0.5  ->  ACAUSAL (superluminal c_+ ~ 2,1.6,1.5)
 #                   τ̂ = 1.5             ->  CAUSAL   (subluminal  c_+ ~ 0.9)
 
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl")
+include(joinpath(@__DIR__, "..", "src", "BDNKStar.jl"))
 using .BDNKStar
 
 # ---------------------------------------------------------------------------

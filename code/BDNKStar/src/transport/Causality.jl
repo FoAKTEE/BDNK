@@ -14,6 +14,34 @@
       * subluminal:                          c²₊ ≤ 1
     `causality_flag` returns these as a NamedTuple so the evolution can monitor a
     pointwise violation flag (a first-class output, not an afterthought).
+
+    ── RECONCILIATION NOTE (vs Kovtun/Shum char-speed paths) ──────────────────
+    Loose end resolved in repro/causality_reconcile.jl.  The companion paths are:
+      • repro/kovtun_sound.jl   — full sound-channel dispersion ω(k); its LARGE-k
+        slopes ω/k → c∞ ARE the characteristic speeds (numeric ≡ analytic, the
+        eq.4.18 biquadratic `largek_sound2` in bdnk_frame_independence.jl).
+      • Transport.jl::shum_frame_speeds — scale-free hatted frame, c₊²+c₋²=3cs².
+    VERDICT: documented convention/system split, NOT a coefficient bug.
+    Two independent witnesses (causality_reconcile.jl Tables 1–4 + the scaling
+    test) show:
+      (1) These (Λ₀,Λ₁,Λ₂) expect the relaxation times τε,τP,τQ as DIMENSIONLESS
+          frame numbers, not the dimensionful relaxation lengths.  Evidence: the
+          bare `(-1+τP)` in Λ₀ and the expansion 2Λ₁/Λ₂ = cs²(1/τQ + τP/τε + 1)
+          mix dimensions — only a pure-number τ makes `(τP-1)` and the `1/τQ`
+          term homogeneous.  Feeding dimensionful τ≈0.02 blows up 1/τQ≈43,
+          which is exactly why frame-independence saw disc<0 for ALL frames:
+          the speeds are NOT invariant under a uniform τ→λτ rescale (the scaling
+          test in causality_reconcile.jl), whereas any true k→∞ slope must be.
+      (2) Even fed the dimensionless ratios, this biquadratic does NOT equal
+          Kovtun's large-k limit (Table 3): the correct Kovtun large-k object is
+          (ε1θ)c⁴ - A2 c² + θ(cs²(ε2+π1-cs²ε1)-γs) = 0 with
+          A2 = cs⁴ε1²+γsε1+(ε2+π1)(θ-cs²ε1)+ε2π1 — it carries Kovtun's π1,ε2,
+          which this Keeble–Redondo-Yuste form (Λ₀∝(3ζ+4η)⁴, no π1/ε2 cross
+          terms, q̂-free) lacks.  Different physical char-system, not a typo.
+    ⇒ The MATCHED causality check is the Kovtun eq.4.18 route (route (i) in
+      bdnk_frame_independence.jl); only the frame RATIOS map to Shum
+      (ŝ=τP/(cs²τε)=ŝ, â=τQ/τε).  This module's flag is retained as the literal
+      Keeble–Redondo-Yuste port for cross-reference, NOT as the definitive check.
 =#
 module Causality
 

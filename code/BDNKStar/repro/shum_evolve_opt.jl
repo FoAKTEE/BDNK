@@ -35,7 +35,7 @@
         no closures); KO dissipation is a top-level typed function, not a closure.
 =#
 
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl")
+include(joinpath(@__DIR__, "..", "src", "BDNKStar.jl"))
 using .BDNKStar
 using .BDNKStar.EquationOfState: ShumPolytrope, pressure, sound_speed2, energy_from_pressure
 using .BDNKStar.TOV: TOVStar, solve_tov
@@ -46,7 +46,7 @@ using LinearAlgebra: norm
 # silence that stdout so this file's output is clean.)
 let
     redirect_stdout(devnull) do
-        include("/data/haiyangw/claude/BDNK/code/BDNKStar/repro/shum_core.jl")
+        include(joinpath(@__DIR__, "shum_core.jl"))
     end
 end
 
@@ -618,7 +618,7 @@ function run_shum(Dr::Float64, t_f::Float64; case::Symbol=:smallSB_F2,
                   sample_dt::Float64=1.0, epspert::Float64=1e-4)
     s, ts, ecs, nan_hit, ec0 = run_evolution(; dr=Dr, t_f=t_f, vpert=0.0,
         epspert=epspert, sample_dt=sample_dt, label="run_shum $case", case=case)
-    outpath = "/data/haiyangw/claude/BDNK/code/BDNKStar/repro/r5_eps_Dr$(Dr).txt"
+    outpath = joinpath(@__DIR__, "r5_eps_Dr$(Dr).txt")
     open(outpath, "w") do io
         println(io, "# t  eps_c   (Shum 2509.15303 nonlinear Cowling BDNK, case=$case, M_T=1.4)")
         for k in 1:length(ts)

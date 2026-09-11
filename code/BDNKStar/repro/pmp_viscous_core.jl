@@ -40,7 +40,7 @@
 #        of the assembled BDNK stress tensor.
 # =============================================================================
 
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl")
+include(joinpath(@__DIR__, "..", "src", "BDNKStar.jl"))
 using .BDNKStar
 using .BDNKStar.ConformalEvolution: _qLx, _qRx, erf_
 using .BDNKStar.Bjorken

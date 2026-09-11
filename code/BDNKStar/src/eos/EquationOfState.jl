@@ -29,7 +29,7 @@ module EquationOfState
 using ..Numerics
 
 export AbstractEOS, BarotropicEOS, GeneralEOS,
-       PolytropeEnergy, ShumPolytrope, IdealGas, TabulatedBarotrope, tabulate,
+       PolytropeEnergy, ShumPolytrope, IdealGas, TabulatedBarotrope, tabulate, isentropic_idealgas,
        pressure, sound_speed2, cn2, heat_conduction_stable, d2pde2, energy_from_pressure,
        dpdrho_eps, dpdeps_rho, specific_enthalpy, total_energy_density,
        temperature, is_thermodynamically_valid, apply_floor
@@ -60,6 +60,35 @@ end
 #   cs²(e) = dp/de = 1 - 1/√(1 + 4κe)          (→0 as e→0, →1 as e→∞: causal)
 #   e(p)   = p + √(p/κ)                          (ρ = √(p/κ))
 # ---------------------------------------------------------------------------
+"""
+    ShumPolytrope(κ)
+
+Cold Γ=2 polytrope p=κρ² in energy-density form (Shum et al. 2509.15303 eq.53).
+
+!!! important "κ carries UNITS — and κ=100 means two different stars"
+    κ has dimensions of (length)² in geometric units, so `ShumPolytrope(100.0)` is
+    only defined once you fix the length unit. Because the Γ=2 (n=1) polytrope is
+    SCALE-INVARIANT with M ∝ √κ, the *same* raw TOV solution reproduces two
+    DIFFERENT published benchmark stars, differing by exactly
+    √(1 M⊙² / 1 km²) = 1.4766:
+
+    | reading            | κ         | M           | R        | used by / anchor |
+    |--------------------|-----------|-------------|----------|------------------|
+    | **M⊙-geometric**   | 100 M⊙²   | 1.400 M⊙    | 14.15 km | Font/Stergioulas/Kokkotas ℓ=2 benchmark (`test_nonradial`, `test_spherical`) |
+    | **km-geometric**   | 100 km²   | 0.948 M⊙    | 9.59 km  | Kokkotas & Ruoff 2001 A&A 366,565 Tab. A.18 radial band (`test_dyngr`) |
+
+    Both are physically valid and each module is internally consistent with the
+    reference it targets — but the raw `star.M`, `star.R` are unit-agnostic, so a
+    reported mass in M⊙ or frequency in kHz is meaningless without naming the
+    reading. Conversions in use:
+      * M⊙-geometric → km: `R_km = star.R * Msun_to_km`; `star.M` is ALREADY M⊙
+        (do NOT call `mass_solar`); frequencies: `f·Msun_to_km·kHz_to_km`
+        (cf. `test_spherical`'s `kHz2cyc`).
+      * km-geometric → M⊙: `mass_solar(star)`; frequencies: `f[km⁻¹]/kHz_to_km`
+        (cf. `DynGR1D.dyngr_radial_freq`, no M⊙ rescaling).
+    DIMENSIONLESS results (compactness M/R, Mω, Λ, Q, damping exponents) are
+    identical under both readings and are unaffected by this choice.
+"""
 struct ShumPolytrope <: BarotropicEOS
     κ::Float64
 end
@@ -67,6 +96,8 @@ end
 @inline pressure(eos::ShumPolytrope, e::Real) =
     (1 + 2*eos.κ*e - sqrt(1 + 4*eos.κ*e)) / (2*eos.κ)
 @inline sound_speed2(eos::ShumPolytrope, e::Real) = 1 - 1/sqrt(1 + 4*eos.κ*e)
+# d²p/de² = d(cs²)/de = 2κ (1+4κe)^{-3/2}  (needed for cs'(r) in the radial LAWE)
+@inline d2pde2(eos::ShumPolytrope, e::Real) = 2*eos.κ * (1 + 4*eos.κ*e)^(-1.5)
 @inline energy_from_pressure(eos::ShumPolytrope, p::Real) = p + sqrt(p/eos.κ)
 
 # ---------------------------------------------------------------------------
@@ -133,6 +164,26 @@ function tabulate(base::BarotropicEOS, e_lo::Real, e_hi::Real, N::Int)
     p = [pressure(base, ei) for ei in e]
     dpde = [sound_speed2(base, ei) for ei in e]
     return TabulatedBarotrope(loge, p, dpde)
+end
+
+"""
+    isentropic_idealgas(; Γ=2.0, K=100.0, ρ_lo=1e-7, ρ_hi=1e-1, N=600) -> TabulatedBarotrope
+
+Cold **ideal-gas** EOS p=(Γ-1)ρϵ on an adiabat (constant entropy) ⇒ p=Kρ^Γ with total
+energy density ε = ρ + p/(Γ-1) and c_s² = dp/dε = ΓKρ^{Γ-1}/(1 + ΓKρ^{Γ-1}/(Γ-1)),
+tabulated as a barotrope so the ideal gas plugs straight into `solve_tov` and every
+perturbation/QNM solver. This brings ideal-gas microphysics into the stellar pipeline;
+the finite-temperature (non-isentropic, temperature-stratified) version that activates
+buoyancy g-modes and genuine heat conduction is a separate `GeneralEOS`-TOV extension.
+"""
+function isentropic_idealgas(; Γ::Real=2.0, K::Real=100.0,
+                             ρ_lo::Real=1e-7, ρ_hi::Real=1e-1, N::Int=600)
+    ρ   = exp.(range(log(ρ_lo), log(ρ_hi); length=N))          # ascending ⇒ ε ascending
+    p   = K .* ρ.^Γ
+    e   = ρ .+ p ./ (Γ - 1)
+    x   = (Γ*K) .* ρ.^(Γ-1)                                    # dp/dρ
+    cs2 = x ./ (1 .+ x ./ (Γ - 1))                            # dp/dε along the adiabat
+    return TabulatedBarotrope(log.(e), p, cs2)
 end
 
 @inline function _locate(t::TabulatedBarotrope, le::Float64)

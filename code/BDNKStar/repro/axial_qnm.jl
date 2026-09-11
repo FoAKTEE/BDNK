@@ -49,8 +49,8 @@
 # all of which we reuse here.  (A second textual `include` of BDNKStar.jl would
 # create a *distinct* Main.BDNKStar module and make exported names ambiguous, so
 # we include the package exactly once, through the stage-1 file.)
-const _BDNKSTAR_SRC = "/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl"
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/repro/axial_waveeqs.jl")
+const _BDNKSTAR_SRC = joinpath(@__DIR__, "..", "src", "BDNKStar.jl")
+include(joinpath(@__DIR__, "axial_waveeqs.jl"))
 using .BDNKStar   # names already in scope via the stage-1 file; re-assert here
 
 using LinearAlgebra

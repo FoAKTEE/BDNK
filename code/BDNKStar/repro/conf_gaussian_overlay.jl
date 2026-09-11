@@ -14,7 +14,7 @@
 
     Run: julia code/BDNKStar/repro/conf_gaussian_overlay.jl
 =#
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl")
+include(joinpath(@__DIR__, "..", "src", "BDNKStar.jl"))
 using .BDNKStar
 using .BDNKStar.ConformalBDNK: ConformalFrame
 

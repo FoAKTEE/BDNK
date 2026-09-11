@@ -56,7 +56,7 @@
 # to the cited equations, matching pmp_viscous_core.jl's definitions exactly.
 # =============================================================================
 
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl")
+include(joinpath(@__DIR__, "..", "src", "BDNKStar.jl"))
 using .BDNKStar
 using Printf
 using LinearAlgebra

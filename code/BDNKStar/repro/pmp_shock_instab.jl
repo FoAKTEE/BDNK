@@ -42,7 +42,7 @@
 #      julia --project=. repro/pmp_shock_instab.jl
 # =============================================================================
 
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/repro/pmp_viscous_core.jl")
+include(joinpath(@__DIR__, "pmp_viscous_core.jl"))
 using .BDNKStar.ConformalEvolution: erf_
 using Printf
 

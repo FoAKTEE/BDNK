@@ -11,7 +11,7 @@
 
     Run: julia code/BDNKStar/repro/conf_tab_cons.jl
 =#
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl")
+include(joinpath(@__DIR__, "..", "src", "BDNKStar.jl"))
 using .BDNKStar
 using .BDNKStar.ConformalBDNK: ConformalFrame, T_tt
 using Printf

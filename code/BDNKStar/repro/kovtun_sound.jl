@@ -32,7 +32,7 @@
           + (ε̄1+θ̄)(2ε̄1² - ε̄1(ε̄2+π̄1) + (θ̄+ε̄2)(θ̄+π̄1)) > 0
 =#
 
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl")
+include(joinpath(@__DIR__, "..", "src", "BDNKStar.jl"))
 using .BDNKStar
 using LinearAlgebra
 

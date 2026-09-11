@@ -8,7 +8,7 @@
 
     Run: julia code/BDNKStar/repro/conf_conv_smooth.jl
 =#
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl")
+include(joinpath(@__DIR__, "..", "src", "BDNKStar.jl"))
 using .BDNKStar
 using .BDNKStar.ConformalBDNK: ConformalFrame
 

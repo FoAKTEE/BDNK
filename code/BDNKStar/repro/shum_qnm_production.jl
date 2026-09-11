@@ -42,7 +42,7 @@
     its physical-constant context for the unit cross-check.
 =#
 
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl")
+include(joinpath(@__DIR__, "..", "src", "BDNKStar.jl"))
 using .BDNKStar
 
 using Printf
@@ -486,7 +486,7 @@ function main()
     println("="^80)
     @printf("UNIT: 1/M_⊙ = %.4f kHz (cyclic).  Decay rate uses 203.025 (NO 2π).\n", INVMSUN_TO_KHZ)
 
-    repro = "/data/haiyangw/claude/BDNK/code/BDNKStar/repro"
+    repro = @__DIR__
     # discover all ladder files and their Δr from the filename
     cand = String[]
     for f in readdir(repro)

@@ -46,7 +46,7 @@
 # Einstein convention is G_ab = 8π T_ab (matches both papers' TOV + source 4π/8π).
 # ======================================================================
 
-include("/data/haiyangw/claude/BDNK/code/BDNKStar/src/BDNKStar.jl")
+include(joinpath(@__DIR__, "..", "src", "BDNKStar.jl"))
 using .BDNKStar
 
 using LinearAlgebra
