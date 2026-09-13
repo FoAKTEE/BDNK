@@ -1,0 +1,891 @@
+\documentclass[aps,prd,preprint,amsmath,amssymb,nofootinbib,longbibliography]{revtex4-2}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black}
+\usepackage{array}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\newcommand{\Msun}{M_\odot}
+\newcommand{\kHz}{\,\mathrm{kHz}}
+\newcommand{\cs}{c_s}
+\newcommand{\BDNK}{BDNK}
+\newcommand{\void}{\textsc{void}}
+\newcommand{\pct}{\%}
+
+\begin{document}
+
+\title{BDNKStar: neutron-star oscillation modes in causal first-order viscous hydrodynamics ---
+methods, mode census, frame robustness, and a 3+1D engine validation}
+
+\author{N. Fernandes}
+\affiliation{California Institute of Technology, Pasadena, CA 91125, USA}
+
+\date{\today}
+
+\begin{abstract}
+We document the numerical methods implemented in \textsc{BDNKStar}, a Julia toolkit for
+relativistic stellar oscillations with Bemfica--Disconzi--Noronha--Kovtun (\BDNK) causal
+first-order viscous hydrodynamics, and report the results of a complete mode census. The
+one-dimensional frequency-domain solvers cover radial and non-radial Cowling $f/p$ towers,
+buoyancy ($g$) modes of stratified stars, interface ($i$) modes at a first-order phase
+transition, full-GR polar quasi-normal modes with gravitational-wave damping, axial viscous
+$w$-modes, tidal deformability, moment of inertia, and $r$-modes, across seven equations of
+state. The viscous sector is recomputed in the three \BDNK\ hydrodynamic frames of
+Clarisse~\emph{et al.}: the repository reproduces their published characteristic speeds
+$c_+ = 1.00/0.85/0.74$ to $10^{-16}$, $3\times10^{-4}$ and $2\times10^{-3}$ from $(a_1,a_2)$
+alone; hydrodynamic observables are frame-invariant to round-off in flat space and to $0.34\%$
+for the stellar axial $w$-mode, while the non-hydrodynamic gaps move by exactly the frame ratios
+$4.00\times$ and $7.00\times$. A structural result is that $a_1$ (the energy-frame time
+$\tau_\varepsilon$) is inert in the axial sector and, empirically, in the 3+1D polar sector as
+well. Searching for EOS-independent combinations of modes, every two-mode ratio fails across a
+mass sequence; the $\sqrt{\ell/2}$ scaling of the $f$-mode $\ell$-ladder is shown to be a
+fixed-mass artifact and the ladder relation an algebraic identity, while a four-observable
+pure-spectral relation among $(f_f,\tau_f,f_w,\tau_w)$ survives at $0.70\%$ leave-one-EOS-out
+scatter and a new $w$-Love relation at $0.38\%$. The relativistic Cowling approximation is shown
+to break the $f$-Love relation ($1.81\%$ vs $0.18\%$). Finally the three 3+1D Cartesian engines
+are validated against the 1D solvers: the linear Cowling engine reproduces the $f$-mode to
+$<0.1\%$ for smooth barotropes but excites a growing surface mode for crusted EOS; the \BDNK\
+engine gives a frame-invariant viscous damping rate converging at third order to $96$--$97\%$
+of the Navier--Stokes dissipation integral and shows the linear stability bound
+$\tau_Q w_0 c_s^2 > \tfrac43\eta$ to be sufficient but not necessary; the nonlinear DG engine
+represents a non-axisymmetric $m=2$ perturbation and bounds the grid's violation of the
+$m$-degeneracy at $10^{-4}$. All three 3D engines freeze the metric, so gravitational-wave
+damping, tidal deformability and the $w$-modes are structurally out of their reach. We keep
+every retracted claim and every engine defect in the record.
+\end{abstract}
+
+\maketitle
+
+\tableofcontents
+
+%======================================================================
+\section{Scope and conventions}
+%======================================================================
+
+Throughout, $G=c=1$. Two geometric length conventions coexist in the code and were the source
+of one bug found in this work: \texttt{ShumPolytrope(100.0)} (the $\Gamma=2$, $K=100$
+polytrope) is \emph{solar-mass}-geometric, so that its central density
+$\varepsilon_c = 0.00128 + 100\cdot0.00128^2$ gives the standard benchmark star
+$M = 1.4002\,\Msun$, $R = 14.154$~km; the piecewise polytropes and \texttt{PolytropeEnergy}
+are \emph{kilometre}-geometric. Frequencies are converted with $\mathrm{kHz\to km}$ and the
+appropriate unit length $L_{\rm unit}$; omitting the $L_{\rm unit}$ argument silently lowers
+km-geometric frequencies by $1.4766$ (this exact bug exists at
+\texttt{test/test\_universal\_relations.jl:80}). Compactness is $C = 1.476625\,M/R$ with $M$ in
+$\Msun$ and $R$ in km; every data file produced here satisfies this to $<10^{-5}$.
+
+Three verification conventions governed the whole study and are stated once here:
+\begin{enumerate}
+\item A quantity flat at a single mass is not universal; universality is tested along a mass
+sequence and across EOS simultaneously.
+\item Identical digits across a swept parameter mean the parameter is not being forwarded.
+This failure mode occurred three separate times (an unforwarded $\hat\tau$, a defaulted-off
+junction switch, and a Julia parse of \texttt{2f1} as the \texttt{Float32} literal $20.0$).
+\item A time-domain frequency from a record of length $T$ has spectral resolution
+$\Delta f = 1/T$; any claimed effect smaller than $\Delta f$ rests on parametric peak
+estimation and is quoted as such, never as a resolved line.
+\end{enumerate}
+
+%======================================================================
+\section{Background stars}
+%======================================================================
+
+\subsection{Tolman--Oppenheimer--Volkoff integration}
+The static background is
+\begin{align}
+m' &= 4\pi r^2 \varepsilon, \qquad
+\nu' = \frac{2(m + 4\pi r^3 p)}{r(r-2m)}, \qquad
+p' = -\frac{(\varepsilon+p)(m + 4\pi r^3 p)}{r(r-2m)},
+\end{align}
+integrated outward by classical RK4 from a Taylor-seeded regular centre,
+$m(h) = \tfrac{4\pi}{3}\varepsilon_c h^3$, $p(h) = p_c - 2\pi(\varepsilon_c+p_c)(\varepsilon_c/3+p_c)h^2$.
+The surface is located by linear interpolation of the last step at $p\to0$, and $\nu$ is shifted
+so that $e^{\nu(R)} = 1-2M/R$. The metric is $ds^2 = -e^{\nu}dt^2 + e^{\lambda}dr^2 + r^2d\Omega^2$
+with $\nu,\lambda$ the \emph{full} exponents, so $\Phi' = \nu'/2$ is the local gravity and
+$\alpha = e^{\nu/2}$ the lapse. The step is $h = 2\times10^{-4}$ (production) or
+$5\times10^{-5}$ (radial modes); the interface-mode TOV steps \emph{through} a density jump,
+which caps its convergence at first order in $h$ (Sec.~\ref{sec:imode}).
+
+\subsection{Equations of state}
+\label{sec:eos}
+Nine EOS families were exercised (Table~\ref{tab:coverage}):
+\begin{description}
+\item[Shum polytrope] $p = K\rho^2$, $\varepsilon = \rho + p$, $K=100$ ($\Msun$-geometric); the
+Font--Stergioulas--Kokkotas benchmark star.
+\item[\texttt{PolytropeEnergy}] $p = \kappa\varepsilon^{1+1/n}$; used at $\Gamma = 2, 2.5, 3$ as
+outlier controls, and at $(\kappa,n) = (100,1)$ as the Bussi\`eres EOS1 axial benchmark star.
+\item[Read \emph{et al.} piecewise polytropes] SLy, APR4, H4, MS1 from Table~III of
+Ref.~\cite{Read2009}: a fixed four-piece SLy crust joined to three high-density segments
+$p = K_i\rho^{\Gamma_i}$ at $\rho_1 = 10^{14.7}$, $\rho_2 = 10^{15}$~g\,cm$^{-3}$, with
+$\varepsilon_i = (1+a_i)\rho + K_i\rho^{\Gamma_i}/(\Gamma_i-1)$ and $a_i$ fixed by continuity.
+The curve is tabulated into a monotone cubic-Hermite \texttt{TabulatedBarotrope}. The
+\textbf{package default of $N=2000$ table nodes is unsafe}: it puts a silent $6\%$ error in
+SLy's radial fundamental ($4.584$ vs $4.328$~kHz at $N=8000$). All production runs used
+$N=8000$. Backgrounds reproduce the published $M_{\max}$ and $R_{1.4}$ to $0.03$--$0.9\%$.
+\item[Tabulated Shum] \texttt{tabulate(ShumPolytrope,\,1e-11,\,1e-1,\,4000)}, exercising the
+interpolation path; agrees with the analytic Shum $f/p$ tower to nine significant figures.
+The lower table bound is load-bearing: $e_{\rm lo} = 10^{-10}$ returns a \emph{spurious
+fundamental} below the true one.
+\item[Stratified ideal gas] \texttt{solve\_tov\_idealgas($\Gamma$, $\Gamma_{\rm struct}$)}:
+hydrostatic structure follows index $\Gamma_{\rm struct}$ while perturbations are adiabatic with
+index $\Gamma$; $\Gamma \neq \Gamma_{\rm struct}$ gives $N^2 \neq 0$. The only family supporting
+$g$-modes.
+\item[Phase-transition hybrid] $\varepsilon(p) = \varepsilon_{\rm poly}(p) + \Delta\varepsilon\,
+\Theta(p - p_t)$ on the $\Gamma=2$ base: a genuine density discontinuity at constant pressure,
+which the continuous piecewise polytropes cannot represent. Lives in the shooting script, not
+yet in \texttt{src/eos/}.
+\end{description}
+
+%======================================================================
+\section{One-dimensional perturbation solvers}
+%======================================================================
+
+\subsection{Radial Cowling modes}
+The Lagrangian displacement obeys $A_2\xi'' + A_1\xi' + A_0\xi = \omega^2\xi$ with
+$A_{0,1,2}$ explicit in $(m,p,\varepsilon,\nu,\cs,\cs')$; second-order central differences on a
+uniform grid, $\xi(0)=0$, $\Delta p(R)=0$, solved as a matrix eigenproblem. The operator needs
+$d^2p/d\varepsilon^2$: \textbf{no \texttt{d2pde2} method exists for \texttt{TabulatedBarotrope}},
+so the radial solver dies with a \texttt{MethodError} on every tabulated EOS (a blocker still in
+\texttt{src/}). The atmosphere floor $\varepsilon_f = 10^{-9}\varepsilon_c$ is hardcoded and
+evaluates $\cs$ there, producing \texttt{Inf}/\texttt{NaN} or a spurious mode depending on the
+table bounds.
+
+\subsection{Non-radial Cowling $f/p$ modes}
+\label{sec:fp}
+The McDermott--Van~Horn--Scholl / Sotani $(W,V)$ system~\cite{Sotani2024},
+\begin{align}
+\frac{dW}{dr} &= \frac{1}{\cs^2}\Big[\omega^2 r^2\frac{e^{\lambda}}{e^{\nu}}V + \frac{\nu'}{2}W\Big]
+ - \ell(\ell+1)e^{\lambda}V, \qquad
+\frac{dV}{dr} = \nu' V - \frac{e^{\lambda}}{r^2}W,
+\end{align}
+with $W\sim r^{\ell+1}$, $V\sim -r^{\ell}/\ell$ at the centre and $\Delta p = 0$ at the surface,
+$\omega^2R^2(e^\lambda/e^\nu)V(R) + \tfrac{\nu'}{2}W(R) = 0$. RK4 shooting from the centre and
+Brent root-finding in $\omega^2$ on the surface mismatch, $N=2500$--$4000$ steps. A hardcoded
+surface cut at $R(1-10^{-3})$ contributes $+0.015/+0.032/+0.055\%$ to $p_2/p_3/p_4$; $f$ and
+$p_1$ are converged to $<0.01\%$.
+
+\subsection{Gravity modes}
+The stratified $(U,V)$ form~\cite{Jaikumar2021,GaertigKokkotas2009}, $U = r^2e^{\lambda/2}\xi_r$,
+$V = \delta P/(\varepsilon+P)$,
+\begin{align}
+\frac{dU}{dr} &= \frac{g}{\cs^2}U + e^{\lambda/2}\Big[\frac{\ell(\ell+1)e^{\nu}}{\omega^2} - \frac{r^2}{\cs^2}\Big]V,\qquad
+\frac{dV}{dr} = e^{\lambda/2-\nu}\frac{\omega^2 - N^2}{r^2}U + g\,\Delta(c^{-2})V,
+\end{align}
+with $g = \nu'/2$, $\Delta(c^{-2}) = 1/c_e^2 - 1/\cs^2$ and the relativistic Brunt--V\"ais\"al\"a
+frequency $N^2 = g^2\Delta(c^{-2})e^{\nu-\lambda}$. $\Gamma > \Gamma_{\rm struct} \Rightarrow
+N^2 > 0 \Rightarrow$ a real $g$-tower below the $f$-mode; $\Gamma < \Gamma_{\rm struct}$ gives
+$N^2<0$ and imaginary frequencies (convective instability), both verified. Two defects: the
+mode classifier at \texttt{GravityModes.jl:324} uses \texttt{argmin(nodes)} with no tie-break and
+misidentifies the $f$-mode when two zero-node modes appear; and the default scan floor
+$\omega^2_{\rm lo} = 10^{-4}$ sits \emph{above} the entire $g$-tower for stratification
+$\delta \lesssim 0.02$, silently returning zero $g$-modes on a star that has them.
+
+\subsection{Interface modes at a first-order phase transition}
+\label{sec:imode}
+Written for this work. With $Y \equiv \delta p$ and $Rh$ related to the displacement by
+$\xi_r = \alpha\,Rh/(\omega w_0 e^{\lambda})$, the shooting system is
+\begin{align}
+\frac{dY}{dr} &= \frac{\omega Rh}{\alpha} - \Phi'\frac{1+\cs^2}{\cs^2}Y, \\
+\frac{dRh}{dr} &= -\frac{\omega e^{\lambda}}{\cs^2\alpha}Y + \frac{\ell(\ell+1)\alpha e^{\lambda}}{\omega r^2}Y
+ - \frac{d\ln g}{dr}Rh, \qquad g \equiv \frac{r^2\alpha\rho_0}{w_0\sqrt{e^{\lambda}}},
+\end{align}
+with the free-surface discriminant $D = Y + \xi_r p_0'$ normalised by $|Y|+|\xi_r p_0'|$. The
+\emph{structural} fact that makes the conversion-timescale question a clean null test: since
+$d\ln g/dr \ni -d\ln w_0/dr$, marching straight through the discontinuity integrates the delta
+function to $Rh_{\rm out}/Rh_{\rm in} = w_{\rm out}/w_{\rm in}$ exactly, i.e.\ it enforces
+$\xi_r$ continuity by itself, while $Y$ stays continuous because its coefficients are bounded.
+That is \emph{rapid} conversion. \emph{Slow} conversion (Lagrangian $\Delta p$ continuous rather
+than $\delta p$) adds exactly one term at the junction,
+\begin{equation}
+Y \;\to\; Y + \xi_r\,\Phi'\,(w_{\rm out}-w_{\rm in}),
+\end{equation}
+and the $i$-mode exists if and only if that term is present. The claim was challenged by a
+verifier as ``wrong in sign'' and settled numerically: integrating $Rh$ across the resolved
+interface and dividing by a smooth no-jump control gives $0.824804\to0.819238\to0.816287$ as the
+half-width halves, first order, extrapolating to $0.8133$ against the prediction $0.81342$
+($0.01\%$); the opposite sign would give $1.2294$. The junction skip width $\epsilon$ and the
+background step $h$ are both first-order error sources ($\Delta f_i \propto \epsilon$ exactly,
+as expected from dropping a shell of thickness $2\epsilon$), extrapolating to
+$f_i(\ell=2,\Delta\varepsilon=2\times10^{-4}) = 0.93424\kHz$ at $\sim0.01\%$. Two bugs were
+found and are recorded because both faked a \emph{wrong-but-plausible} answer: the junction
+branch was keyed to a caller-supplied kwarg that defaulted off (every early ``$i$-mode'' was a
+plain star, giving $59$--$178$~Hz, $10\times$ below the published band), and $w_{\rm in/out}$
+were read by linear interpolation of the background, which smears the jump over one cell.
+Stars beyond the Seidov limit $\Delta\varepsilon_S = \varepsilon_{\rm out}/2 + 3p_t/2$ are
+radially unstable and are flagged.
+
+\subsection{Full-GR polar quasi-normal modes}
+The Lindblom--Detweiler even-parity system~\cite{DetweilerLindblom1985} in the numerically stable
+variables $\{H_1,K,W,X\}$ as written by Kr\"uger, Gaertig \& Kokkotas~\cite{KGK2011}: two
+centre-regular solutions combined to satisfy $X(R)=0$; at the surface $(H_1,K)$ is mapped to the
+Zerilli function, integrated in vacuum to a matching radius $a$; the purely-outgoing condition is
+imposed analytically via the Chandrasekhar--Detweiler transform of the Regge--Wheeler Leaver
+continued fraction (isospectrality); the QNM condition is the vanishing Wronskian
+$Z_{\rm in}Z'_{\rm up} - Z_{\rm up}Z'_{\rm in} = 0$, root-found by a complex secant. Frequencies
+are insensitive to $a$ ($<2\times10^{-6}$) but $\tau_f$ moves by $33$--$35\%$ between
+$a/R = 3$ and $30$ and the method branch-jumps to the $w$-mode by $a/R=50$; production uses
+$a/R=12$ and quotes $\tau$ only with $a$ stated.
+
+\subsection{Axial viscous $w$-modes}
+A faithful port of Bussi\`eres \emph{et al.}~\cite{Bussieres2026}: coupled axial wave equations
+for the metric $\psi$ and the fluid $Z$ with the Regge--Wheeler potential and \BDNK\ couplings,
+two-seed RK4 interior shooting with the surface regularity condition, exterior vacuum RW
+integration, Leaver ``up'' continued fraction, and $\Delta(\omega) = \psi'_{\rm in}/\psi_{\rm in}
+- \psi'_{\rm up}/\psi_{\rm up} = 0$. Viscosity parametrizations A: $\eta = \hat\eta(\rho+p)L_0\cs^2$,
+$\tau = \hat\tau L_0\hat\eta$; B: $\eta = \hat\eta pL_0$, $\tau = \hat\tau L_0 p/\rho$.
+Reproduces Table~II~A1 of Ref.~\cite{Bussieres2026} to $+0.0002\%$ in $f$ and $-0.035\%$ in
+$\tau$; a single solve takes $0.05$--$1$~s. A structural observation (Sec.~\ref{sec:frames}):
+the solver assigns the energy-frame coefficient $\theta$ at line 291 and never reads it.
+
+\subsection{Tidal deformability, moment of inertia, $r$-modes}
+$k_2$ from the Riccati equation $ry' + y^2 + yF + r^2Q = 0$, $y(0)=2$, with the
+Hinderer closed form~\cite{Hinderer2008,Postnikov2010} and $\Lambda = \tfrac23k_2C^{-5}$. The moment
+of inertia from Hartle's frame-drag equation $\frac{d}{dr}[r^4 j\varpi'] + 4r^3j'\varpi = 0$,
+$j = e^{-(\nu+\lambda)/2}$~\cite{Hartle1967}, with $I = J/\Omega$ and $\bar I = I/M^3$.
+$r$-modes from Lindblom--Owen--Morsink~\cite{LOM1998}: $\sigma = \tfrac23\Omega$,
+$\omega = -\tfrac43\Omega$, with $1/\tau = 1/\tau_{\rm GW} + 1/\tau_{sv} + 1/\tau_{bv}$; the
+Newtonian $n=1$ Lane--Emden integral $\tilde J = 1.635270\times10^{-2}$ reproduces LOM98's
+$1.635\times10^{-2}$ ($+0.02\%$). One calibrated constant absorbs the O(1) $\delta\rho$
+eigenfunction normalisation of the bulk-viscosity integral.
+
+%======================================================================
+\section{BDNK causal viscous hydrodynamics}
+\label{sec:bdnk}
+%======================================================================
+
+\subsection{Constitutive relations and hydrodynamic frames}
+The general-frame stress tensor~\cite{BDN2022}
+\begin{align}
+T^{\mu\nu} &= (\varepsilon + \mathcal A)u^\mu u^\nu + (P + \Pi)\Delta^{\mu\nu} - 2\eta\sigma^{\mu\nu}
+ + u^\mu\mathcal Q^\nu + u^\nu\mathcal Q^\mu,\\
+\mathcal A &= \tau_\varepsilon[D\varepsilon + (\varepsilon+P)\theta],\qquad
+\Pi = -\zeta\theta + \tau_P[D\varepsilon + (\varepsilon+P)\theta],\\
+\mathcal Q^\nu &= \tau_Q[(\varepsilon+P)Du^\nu + \cs^2\Delta^{\nu\lambda}\partial_\lambda\varepsilon],
+\end{align}
+with $D = u\cdot\nabla$, $\theta = \nabla\cdot u$. The relaxation times
+$(\tau_\varepsilon,\tau_P,\tau_Q)$ are the frame; physical predictions must not depend on them
+at first order in gradients, while the non-hydrodynamic (gapped) modes do.
+
+\subsection{The Clarisse frames and their non-conformal generalisation}
+Clarisse \emph{et al.}~\cite{Clarisse2025} parametrize $\tau_\varepsilon = a_1(1/T)(\eta/s)$,
+$\tau_Q = a_2(1/T)(\eta/s)$ under $a_1\ge4$, $a_2 \ge 3a_1/(a_1-1)$, and use
+(Table~\ref{tab:frames}) $F_1 = (25/4,25/7)$, $F_2 = (25/2,25/3)$, $F_3 = (25,25)$. $F_1$
+\emph{saturates} the second bound exactly, $3(25/4)/(21/4) = 25/7$, which is why its $c_+$ is
+exactly~1: it is the marginally causal frame, and any stellar result in which $F_1$ looks cleaner
+than $F_2,F_3$ should be treated as suspect. At zero chemical potential $w = \varepsilon+P = sT$,
+so $(1/T)(\eta/s) = \eta/w$ and the stellar map is
+\begin{equation}
+\tau_\varepsilon = a_1\,\eta/w_0(r), \qquad \tau_Q = a_2\,\eta/w_0(r),
+\label{eq:map}
+\end{equation}
+position-dependent inside a star. Under this map the repository's own linear stability bound
+for the polar sound sector, $\tau_Qw_0\cs^2 > \tfrac43\eta$, reduces to the $\eta$-independent
+condition $a_2\cs^2 > 4/3$.
+
+\subsection{Flat-space dispersion and characteristic speeds}
+The sound-channel quartic of Kovtun~\cite{Kovtun2019} in the general frame
+$(\varepsilon_1,\varepsilon_2,\pi_1,\pi_2,\theta)$ is solved by companion-matrix roots; the
+Clarisse frames map as $\theta = \tau_Qw$, $\varepsilon_1 = \tau_\varepsilon w/\cs^2$,
+$\varepsilon_2 = \pi_1 = \cs^2\varepsilon_1$, $\pi_2 = \cs^4\varepsilon_1 - \zeta$ (the last being
+Kovtun's footnote-8 compensation that pins the physical bulk viscosity across frames). The
+large-$k$ biquadratic (Kovtun Eq.~4.18) gives the characteristic speeds. The separate
+Keeble--Redondo-Yuste biquadratic in \texttt{Causality.jl} is a different characteristic system
+(it lacks the $\pi_1,\varepsilon_2$ cross terms) and does \emph{not} reproduce the Clarisse table
+under any feeding; it is retained for cross-reference only.
+
+\subsection{Polar \BDNK\ operator (frequency domain)}
+The linearised polar \BDNK--Cowling system reduced to one radial dimension for fixed $\ell$,
+five fields $(\hat\rho, \delta\hat S_r, \delta\hat S_\theta, \hat u^r, \hat u^\theta)$, plus a sixth
+(the Lagrangian displacement $\xi$) when stratified; QNMs are the eigenvalues of the resulting
+matrix, tracked by complex continuation in $\hat\eta$. Transport channels: relaxation
+$\tau_R = \hat\tau + c_\tau\hat\eta$ (recovery denominator $\tau_Rw_0-\eta$), reactive conduction
+$\kappa_Q$, and momentum shear $\nu_{\rm mom}$ (the genuine damper). A corrected free-surface
+boundary condition ($\Delta p = 0 \Rightarrow \partial_t\delta\rho = -\delta v^r p_0'/(\cs^2h_0)$)
+moved the $f$-mode from $+8.91\%$ to $+0.18\%$ of the shooting value. A verifier found that the
+velocity recovery omits the lapse multiplying the whole bracket, so the faithful relaxation slot
+is $\tau_R = \tau_Q/\alpha$; the polar \emph{damping} rates from this operator were withheld on
+that basis (Sec.~\ref{sec:frames}).
+
+%======================================================================
+\section{The 3+1D Cartesian engines}
+\label{sec:engines}
+%======================================================================
+
+All three engines freeze the metric (Cowling). This is a structural limit, not a resolution one:
+there is no gravitational radiation and no metric perturbation, so $w$-modes, GW damping times,
+$\Lambda$, and hence $f$-Love and $w$-Love cannot exist in them; neither can $g$, $i$, or $r$
+modes (no stratification, no discontinuity, no rotation).
+
+\subsection{\texttt{CowlingEvolve3D}: linearized, cut-cell surface}
+Evolves $(\delta\varepsilon, \delta S_i)$ with $\delta S_i = (\varepsilon_0+p_0)\delta v_i$ so that
+$(\varepsilon_0+p_0)$ cancels from every RHS and the $1/w_0$ surface blow-up disappears:
+\begin{align}
+\partial_t\delta\varepsilon &= -\frac{1}{\sqrt\gamma}\partial_i[\alpha\sqrt\gamma\,\delta S^i] - \alpha\Phi'(n_i\delta S^i),\qquad
+\partial_t\delta S_i = -\alpha[\partial_i\delta p + \Phi' n_i(\delta p + \delta\varepsilon)],
+\end{align}
+$\gamma^{ij} = \delta_{ij} + (e^{-2\lambda}-1)n_in_j$, second-order central differences,
+Kreiss--Oliger dissipation $\sigma_{\rm KO}$, RK4. The surface is treated by cut cells: both the
+volume fraction $\kappa$ and the six face apertures reduce to one-dimensional quadratures of the
+same disc--rectangle area, verified against the analytic sphere to $10^{-7}$ in volume and
+$4\pi R^2$ at second order in closure. Seeds and diagnostics are $\ell=2$, $m=0$ only
+($2Z^2-X^2-Y^2$). \textbf{The default \texttt{cut=false} is wrong by $-6.95\%$} and does not
+converge away between $N=32$ and $40$, from a run with no visible symptom.
+
+\subsection{\texttt{CowlingBDNK3D}: full-frame causal viscous}
+Linearised \BDNK\ with the frame times kept, so the dissipative corrections enter the conserved
+densities and the system is hyperbolic. The primitives are recovered from
+\begin{align}
+\delta E &= \delta\varepsilon + \tau_\varepsilon\big(\tfrac1\alpha\partial_t\delta\varepsilon + w_0\theta\big),\qquad
+\delta S^i = w_0\delta v^i + (\tau_Qw_0-\eta)\tfrac1\alpha\partial_t\delta v^i + \tau_Q\cs^2\gamma^{il}\partial_l\delta\varepsilon,
+\end{align}
+with the covariant expansion $\theta = \partial_i\delta v^i + (\Phi' + A'/A)(n\cdot\delta v)$ and
+the closure $\tau_P = \cs^2\tau_\varepsilon$ forced by $\Pi = \cs^2\mathcal A$ (using
+$\tau_P = \tau_\varepsilon$ reopens a documented primitive-feedback instability). The recovery
+denominator $\tau_Qw_0 - \eta$ is the causality margin. The viscous damping is measured by the
+\emph{difference protocol}: $\gamma_{\rm visc} = \gamma(\hat\eta) - \gamma(0)$ at identical grid and
+frame, which cancels the numerical floor; at $N=40$ that floor is still $52\%$ of
+$\gamma_{\rm visc}$, so the protocol is mandatory.
+
+\subsection{\texttt{DGCart3D}: nonlinear nodal RKDG}
+Full 3D tensor-product nodal Runge--Kutta discontinuous Galerkin Valencia GRHydro on the frozen
+metric: densitized conserved set $D = \sqrt\gamma\rho W$, $S_i = \sqrt\gamma\rho hW^2v_i$,
+$\tau = \sqrt\gamma(\rho hW^2 - p - \rho W)$, directional Rusanov sweeps, SSP-RK3, a per-element
+TVB troubled-cell / Zhang--Shu positivity limiter, an atmosphere, and the well-balanced
+lake-at-rest device (the static background's DG RHS is stored and subtracted). Octant grid with
+reflecting symmetry and a full 3-momentum, so $\mathrm{Re}\,Y_{22}\propto n_x^2-n_y^2$ can be
+represented; $\texttt{dgcart3d\_quadrupole\_m2}$ is the $m\neq0$ detector. Two facts govern
+everything it produced: the octant's three \emph{separate} reflections admit only the $E_g$
+doublet $\{Y_{20},\mathrm{Re}\,Y_{22}\}$ of the $\ell=2$ quintet, so the $T_{2g}$ triplet (all of
+$m=1$) is structurally absent; and \textbf{its background is not static} --- the well-balanced
+subtraction is exact but \texttt{\_limit!} is not, so $\rho_c$ erodes $-10\%$ by $t = 600\,\Msun$
+(4.6 $f$-periods) and $-31$ to $-43\%$ by $t=3000$.
+
+\subsection{Frequency extraction}
+\label{sec:extract}
+Time series are analysed by a parabolic-vertex-refined periodogram and an independent
+matrix-pencil (SVD, 14--16 poles) estimator that must agree; every run is gated on finiteness and
+on the end/start envelope ratio before any transform, and a record whose clean window is below
+$10$ periods is voided. At affordable resolution the usable record is $23$ periods
+($\Delta f/f = 4.4\%$) for the linear and \BDNK\ engines and $4.6$ periods ($\Delta f/f = 21.6\%$)
+for the DG engine --- capped not by cost but by the background erosion above. \emph{Every
+sub-percent 3D figure in this paper is a parametric estimate, not a resolved line.}
+
+%======================================================================
+\section{Results I: mode census across equations of state}
+%======================================================================
+
+\begin{table}[htbp]
+\caption{Coverage. $\checkmark$ computed; --- unsupported by construction; $\times$ blocked by a
+defect in \texttt{src/}. $^{*}$ radial spectra of the piecewise polytropes are not
+resolution-independent (closure of $d^2p/d\varepsilon^2$; APR4 fundamental moves
+$4.97\to4.52\to4.58$~kHz as the table refines).}
+\label{tab:coverage}
+\begin{ruledtabular}
+\begin{tabular}{lccccccc}
+EOS & radial & $f/p$ & $g$ & $i$ & axial $w$ & polar GR & $r$ \\
+\hline
+ShumPolytrope(100)            & $\checkmark$ & $\checkmark$ & --- & --- & $\checkmark$ & $\checkmark$ & $\checkmark$\\
+PolytropeEnergy               & $\checkmark$ & $\checkmark$ & --- & --- & $\checkmark$ & $\checkmark$ & $\checkmark$\\
+SLy, APR4, H4, MS1            & $\checkmark^{*}$ & $\checkmark$ & --- & --- & $\checkmark$ & $\checkmark$ & $\checkmark$\\
+TabulatedBarotrope            & $\times$ & $\checkmark$ & --- & --- & $\checkmark$ & $\checkmark$ & $\checkmark$\\
+IdealGasStar ($\Gamma\neq\Gamma_{\rm struct}$) & $\times$ & --- & $\checkmark$ & --- & $\checkmark$ & --- & ---\\
+phase-transition hybrid       & $\times$ & $\checkmark$ & --- & $\checkmark$ & $\checkmark$ & --- & ---\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+\begin{table}[htbp]
+\caption{Non-radial Cowling $f/p$ tower, $M = 1.4\,\Msun$ unless stated, kHz. Benchmark:
+Font--Stergioulas--Kokkotas as tabulated in Ref.~\cite{Vasquez2021} Table~VI. The tabulated path
+reproduces the analytic to nine figures. $p_2$--$p_4$ of the piecewise polytropes wobble
+non-monotonically at $0.1$--$0.3\%$ under resolution change.}
+\label{tab:fp}
+\begin{ruledtabular}
+\begin{tabular}{lcccccccc}
+EOS & $R$ [km] & $f_{\ell=2}$ & $p_1$ & $p_2$ & $p_3$ & $p_4$ & $f_{\ell=3}$ & $f_{\ell=4}$\\
+\hline
+ShumPolytrope & 14.154 & 1.8829 & 4.1067 & 6.0311 & 7.8694 & 9.6709 & 2.2565 & 2.5666\\
+\quad benchmark & 14.15 & 1.8825 & 4.1060 & 6.0298 & 7.8670 & 9.6663 & --- & ---\\
+SLy  & 11.688 & 2.4102 & 6.878 & 9.611 & 10.769 & 12.308 & 2.9462 & 3.3954\\
+APR4 & 11.302 & 2.5082 & 7.323 & 10.263 & 11.500 & 13.104 & 3.0700 & 3.5403\\
+H4   & 13.930 & 1.9458 & 5.493 & 7.291 & 8.214 & 9.716 & 2.3722 & 2.7292\\
+MS1  & 14.904 & 1.7776 & 5.320 & 6.509 & 7.678 & 9.221 & 2.1701 & 2.4990\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+\begin{table}[htbp]
+\caption{Axial $w$-modes (full GR, $\ell=2$): inviscid, and viscous at $\eta_c = 10^{31}$~cgs.
+Bussi\`eres Table~II~A1 is reproduced to $+0.0002\%$ ($f$) and $-0.035\%$ ($\tau$).}
+\label{tab:axial}
+\footnotesize
+\begin{ruledtabular}
+\begin{tabular}{lcccc}
+EOS & $f$ inv. [kHz] & $\tau$ inv. [$\mu$s] & $f$ visc. [kHz] & $\tau$ visc. [$\mu$s]\\
+\hline
+PolytropeEnergy(100, $n{=}1$) & 10.501355 & 29.533755 & 10.089819 & 30.874839\\
+\quad Bussi\`eres A1          & 10.50135  & 29.54     & 10.0898   & 30.8857\\
+ShumPolytrope & 7.087953 & 28.155033 & 6.564552 & 32.022022\\
+PolytropeEnergy(5000, $n{=}2/3$) & 8.892622 & 30.892688 & 8.377897 & 33.182050\\
+SLy  & 8.036591 & 29.287289 & 7.397014 & 32.731680\\
+APR4 & 8.211825 & 29.597018 & 7.581011 & 32.906530\\
+H4   & 7.002713 & 28.620787 & 6.179403 & 34.529500\\
+MS1  & 6.559351 & 28.766736 & 5.8378   & 34.6518\\
+IdealGasStar (stratified) & 7.087953 & 28.155033 & 6.568516 & 31.997322\\
+isentropic $\Gamma=5/3$ & 4.017675 & 32.345819 & \multicolumn{2}{c}{did not converge}\\
+phase transition & 7.178252 & 25.284205 & \multicolumn{2}{c}{ladder stalled at $10^{30}$}\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+\begin{table}[htbp]
+\caption{Polar QNM beyond Cowling ($a/R=12$) and the Cowling overestimate on the same stars.
+$\tau$ carries the $33$--$35\%$ matching-radius systematic.}
+\label{tab:polarGR}
+\begin{ruledtabular}
+\begin{tabular}{lcccc}
+EOS & $f$ [kHz] & $\tau$ [s] & Cowling $f$ & overestimate\\
+\hline
+SLy  & 1.931936 & 0.194418 & 2.4102 & $+24.8\%$\\
+APR4 & 2.004821 & 0.181278 & 2.5082 & $+25.1\%$\\
+H4   & 1.532549 & 0.307263 & 1.9458 & $+27.0\%$\\
+MS1  & 1.373709 & 0.385505 & 1.7776 & $+29.4\%$\\
+ShumPolytrope & 2.323442 & 0.202532 & --- & ---\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+\begin{table}[htbp]
+\caption{$g$-modes, $\ell=2$, stratified ideal gas, $\delta = \Gamma/\Gamma_{\rm struct}-1$, Hz.
+Scaling: $d\log g_n/d\log N_{\max} = 0.981$ (theory 1) and $d\log g_n/d\log\delta = 0.481$
+(theory $1/2$). $g_1/g_2$ is constant to $0.1\%$ only for $\delta\le0.05$, drifting to $\sim1\%$
+by $\delta=0.32$.}
+\label{tab:g}
+\begin{ruledtabular}
+\begin{tabular}{cccc}
+$\delta$ & $g_1$ & $g_2$ & $g_3$\\
+\hline
+0 & \multicolumn{3}{c}{zero $g$-modes ($N^2\equiv0$, as required)}\\
+0.005 & 275.95 & 208.91 & 167.15\\
+0.010 & 388.33 & 293.95 & 235.21\\
+0.020 & 543.85 & 411.59 & 329.38\\
+0.050 & 835.85 & 632.36 & 506.27\\
+0.100 & 1130.42 & 855.36 & 685.44\\
+0.200 & 1473.37 & 1117.87 & 897.97\\
+0.320 & 1707.78 & 1303.66 & 1050.69\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+\begin{table}[htbp]
+\caption{Interface modes, $\ell=2$, $\Delta\varepsilon = 10^{-4}$, interface-position sweep on
+the $\Gamma=2$ base (this session's regeneration). The $i$-mode is absent in every rapid-conversion
+run. The row at $r_t/R = 0.686$ returned two slow roots without rapid counterparts and is left
+unidentified rather than resolved by choice.}
+\label{tab:imode}
+\begin{ruledtabular}
+\begin{tabular}{ccccccc}
+$p_t/p_c$ & $r_t/R$ & $M$ [$\Msun$] & Atwood $A$ & $f_i$ [kHz] & $f$ [kHz] & $p_1$ [kHz]\\
+\hline
+0.10 & 0.686 & 1.2146 & 0.1026 & (ambiguous, 2 roots) & 1.9205 & 4.2952\\
+0.18 & 0.602 & 1.2470 & 0.0767 & 0.694149 & 1.8938 & 4.1643\\
+0.25 & 0.547 & 1.2710 & 0.0648 & 0.674687 & 1.8803 & 4.1175\\
+0.35 & 0.481 & 1.3000 & 0.0542 & 0.648432 & 1.8697 & 4.0873\\
+0.45 & 0.423 & 1.3241 & 0.0473 & 0.625138 & 1.8652 & 4.0756\\
+0.55 & 0.370 & 1.3443 & 0.0424 & 0.604614 & 1.8644 & 4.0730\\
+0.70 & 0.289 & 1.3689 & 0.0370 & 0.578083 & 1.8675 & 4.0780\\
+0.85 & 0.197 & 1.3875 & 0.0331 & 0.555569 & 1.8739 & 4.0897\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+The $i$-mode passes four independent tests. (i) Exactly one new eigenvalue appears under the
+slow map and none under the rapid map at every parameter point. (ii) $\omega_i^2/[g(r_t)k_hA]$
+with $k_h = \sqrt{\ell(\ell+1)}/r_t$ is $0.8965, 0.8966, 0.8962$ for
+$\Delta\varepsilon = 5\times10^{-5}, 10^{-4}, 2\times10^{-4}$ --- linear in $\Delta\varepsilon$
+to $0.02\%$ over a factor of four --- but this $0.896$ is \emph{not} a universal constant: across
+a wider interface sweep it drifts as a finite-wavelength/sphericity correction. (iii)
+$\omega_i^2(\ell)/\omega_i^2(2) = 1.504, 1.984, 2.453$ for $\ell = 3,4,5$ tracks
+$\sqrt{\ell(\ell+1)/6} = 1.414, 1.826, 2.236$ (the interfacial law $\omega^2\propto k_h$) and
+rejects $\omega^2\propto k_h^2$ (which would give $2.00, 3.33, 5.00$). (iv) $|\xi_r|$ peaks at
+$r/R = 0.4730 = r_t/R$. Raising $\Delta\varepsilon$ walks the mode up through the spectrum into
+an avoided crossing with $p_1$ (a $3.252/3.379$~kHz pair near $\Delta\varepsilon = 2\times10^{-3}$).
+
+%======================================================================
+\section{Results II: the three \BDNK\ frames}
+\label{sec:frames}
+%======================================================================
+
+\begin{table}[htbp]
+\caption{The Clarisse frames~\cite{Clarisse2025} and the validation gate: $c_\pm$ computed here
+from $(a_1,a_2)$ alone via the Kovtun large-$k$ biquadratic, conformal $\cs^2=1/3$. Differences
+from the published column are $1.1\times10^{-16}$, $2.8\times10^{-4}$, $1.9\times10^{-3}$ ---
+two-decimal rounding.}
+\label{tab:frames}
+\begin{ruledtabular}
+\begin{tabular}{lcccccl}
+frame & $a_1$ & $a_2$ & $c_+$ publ. & $c_+$ here & $c_-$ here & bound $a_2\ge3a_1/(a_1-1)$\\
+\hline
+$F_1$ & $25/4$ & $25/7$ & 1.00 & 1.000000 & 0.200000 & saturated exactly\\
+$F_2$ & $25/2$ & $25/3$ & 0.85 & 0.849719 & 0.323488 & satisfied\\
+$F_3$ & $25$   & $25$   & 0.74 & 0.741915 & 0.411779 & satisfied\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+Two cautions on the mapping. \texttt{conformal\_frame\_PMP} in \texttt{Transport.jl} uses
+$\lambda = (25/7)\eta$, $\chi = (25/4)\eta$, i.e.\ it \emph{is} $F_1$, but its slot assignment
+is reversed relative to the $a_1/a_2$ roles and must not be cited as independent corroboration.
+And $c_+(F_1) = 1$ only at $\cs^2 = 1/3$; at $\cs^2 = 0.25$ the same $(a_1,a_2)$ gives a
+superluminal $c_+ = 1.053$.
+
+\begin{table}[htbp]
+\caption{Frame robustness at fixed physical transport. Physical quantities must be flat;
+non-hydrodynamic ones must move. Sound channel: Kovtun quartic, $\eta = 0.30$; conformal
+$\zeta = 0$, NS-like $\zeta = 0.015$. Axial: $\eta_c = 10^{31}$~cgs, parametrization A. Polar:
+$\hat\eta = 0.03$, $N_r = 140$, corrected free-surface BC, percentages against $1.8829$~kHz.}
+\label{tab:robust}
+\scriptsize
+\begin{ruledtabular}
+\begin{tabular}{llcccc}
+sector & quantity & $F_1$ & $F_2$ & $F_3$ & spread\\
+\hline
+sound $\cs^2{=}1/3$ & $\mathrm{Re}\,\omega/k$ & 0.577350269190 & 0.577350269190 & 0.577350269190 & $0.0\%$\\
+ & $\Gamma$ & 0.4000000 & 0.4000000 & 0.4000000 & $0.026\%$ at $k=10^{-2}$\\
+ & gap $1/\tau_\varepsilon$ (gauge) & 0.5333 & 0.2667 & 0.1333 & $128.6\%$ ($4.00\times$)\\
+ & gap $1/\tau_Q$ (gauge) & 0.9333 & 0.4000 & 0.1333 & $163.6\%$ ($7.00\times$)\\
+sound $\cs^2{=}0.25$ & $\mathrm{Re}\,\omega/k$ & 0.500000000000 & 0.500000000000 & 0.500000000000 & $0.0\%$\\
+ & $\Gamma$ & 0.4150000 & 0.4150000 & 0.4150000 & $\approx0$\\
+axial $w$ & $f$ [kHz] & 10.056071 & 10.077335 & 10.090470 & $0.34\%$\\
+ & $1/\tau$ [$\mu$s$^{-1}$] & 0.0322627 & 0.0323921 & 0.0323876 & $0.40\%$\\
+ & $c_\eta(0) = 1/\sqrt{a_2}$ (gauge) & 0.52915 & 0.34641 & 0.20000 & $91.8\%$ ($\sqrt7$)\\
+ & gap $1/\tau_Q(0)$ (gauge) & 0.092315 & 0.039563 & 0.013188 & $163.6\%$\\
+polar & $f$, $\hat\eta{=}0.03$ & 1.9038 ($+1.11\%$) & 1.9105 ($+1.47\%$) & 1.9272 ($+2.35\%$) & $1.22\%$\\
+ & $f$, $\hat\eta=0$ & 1.8870 ($+0.22\%$) & 1.8868 ($+0.21\%$) & 1.8848 ($+0.10\%$) & $0.013\%$\\
+ & $f$, $\hat\eta{=}0$, old BC & 2.0121 ($+6.86\%$) & 2.0093 ($+6.71\%$) & 1.9881 ($+5.58\%$) & $0.64\%$\\
+ & cells violating bound & $100\%$ & $60.7\%$ & $21.4\%$ & ---\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+Three results stand out from Table~\ref{tab:robust}.
+
+\emph{The control is real.} A deliberate $40\times$ frame perturbation moves both flat-space gaps
+by exactly $40.00\times$ while $v_s$ and $\Gamma$ stay flat to $1.2\times10^{-12}\%$; an
+$a_2$-only $112\times$ sweep moves only the heat-flux gap. A frame-independence claim without
+such a control is void.
+
+\emph{$a_1$ is inert in the axial sector.} $\mathcal A = \tau_\varepsilon[u\cdot\nabla\varepsilon
++ w\nabla\cdot u]$ is a scalar; odd-parity perturbations have $\delta\varepsilon = \delta P = 0$
+and $\nabla\cdot\delta u = 0$, so $\mathcal A\equiv0$ and $\tau_\varepsilon$ never enters. The
+code agrees. So $F_1/F_2/F_3$ are three values of $\tau_Q$ and nothing else there, and the
+$0.34\%$ residue is not an offset: it scales as $\eta^{1.99}$ while the physical viscous shift
+($-4.06\%$ from the inviscid $10.501355$~kHz) scales as $\eta^{0.98}$ --- one full order higher
+in the dissipative expansion.
+
+\emph{The polar test block is refuted.} \texttt{test\_frame\_independence.jl} block~(c) recorded a
+``fixed $+6$--$7\%$ $f$-mode offset present at all frames''. That reproduces exactly --- under
+the \emph{old} no-slip boundary condition. With the corrected free surface it collapses to
+$+0.10$--$0.22\%$. The offset was never a solver property. The polar damping rates from this
+operator are withheld: with the recovery lapse restored the $f$-mode damping frame-spread changes
+by $\sim20\times$ and the $p_1$ damping spread ($18/25/30\%$ at $N_r = 100/140/180$) is unresolved.
+
+%======================================================================
+\section{Results III: EOS-independent combinations of modes}
+\label{sec:universal}
+%======================================================================
+
+Tested on mass sequences: 7 EOS, 88 stars, $M = 0.55$--$2.62\,\Msun$, $C = 0.073$--$0.318$, all
+mode families on one background grid. The pipeline gate: I-Love against the \emph{published}
+Yagi--Yunes coefficients~\cite{YagiYunes2013} with nothing fitted gives $-0.171\%$ mean,
+$0.293\%$ std, $1.118\%$ max --- literature grade.
+
+\emph{Every two-mode ratio fails} (Table~\ref{tab:ratios}). The $\sqrt{\ell/2}$ result deserves its
+own paragraph because it is the canonical trap: $\omega_f(\ell)/\omega_f(2) = 1.2216, 1.4072$ at
+$M=1.4$ across the four realistic EOS (spreads $0.40\%$, $0.63\%$) sits within $0.5\%$ of
+$\sqrt{3/2}, \sqrt{2}$ --- and drifts \emph{monotonically with compactness}, moving $2$--$4\times$
+more along one EOS's mass sequence than across all EOS at fixed mass, crossing $\sqrt{\ell/2}$ at
+nearly the same compactness $C = 0.186$--$0.205$ for every EOS. $M = 1.4\,\Msun$ merely lands near
+that crossing. Likewise the $\ell$-ladder relation $f_4/f_2 = 1.0127\,(f_3/f_2)^{1.643}$, with a
+spectacular $0.039\%$ leave-one-EOS-out scatter, is an algebraic identity: if
+$\omega_\ell\propto\ell^b$ then $\ln r_4/\ln r_3 = \ln2/\ln1.5 = 1.7095$ identically, the fit is a
+reparametrisation of the single number $b$ (which ranges $0.44$--$0.53$ and drifts with $C$),
+and $b\approx0.49$ is the known surface-wave asymptotic.
+
+\begin{table}[htbp]
+\caption{Two-mode ratios: spread at $M=1.4$ (four realistic EOS) versus across the full
+sequence. None survives.}
+\label{tab:ratios}
+\begin{ruledtabular}
+\begin{tabular}{lcc}
+ratio & fixed $M=1.4$ & across sequence\\
+\hline
+$f(\ell{=}3)/f(\ell{=}2)$ & $0.40\%$ & $3.95\%$\\
+$f(\ell{=}4)/f(\ell{=}2)$ & $0.63\%$ & $6.44\%$\\
+$p_1/f$ & $5.8\%$ & $33\%$\\
+$f_w/f_f$ & $15.4\%$ & $86\%$\\
+$\tau_f/\tau_w$ & $78.9\%$ & $843\%$\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+\emph{What survives.} Two modes fix $(M,R)$ EOS-independently (the Andersson--Kokkotas
+inversion~\cite{AK1998}); a third and fourth are over-determined, and eliminating $(M,R)$ leaves a
+relation among observables alone:
+\begin{equation}
+\ln\frac{f_w}{f_f} = \mathrm{quad}\big[\ln(f_f\tau_f),\ \ln(f_w\tau_w)\big],
+\label{eq:4obs}
+\end{equation}
+leave-one-EOS-out $0.702\%$ std / $3.28\%$ max over 88 stars against an $18.3\%$ constant baseline
+($\approx0.3\%$ excluding the $\Gamma=2$ control). It does \emph{not} beat the $(M,R)$ route at
+matched parameter count --- $\mathrm{quad}(C,\ln\bar I) = 0.59\%$ --- its value is needing no mass
+or radius measurement, not accuracy. Table~\ref{tab:fits} gives the fitted relations. The
+$w$-Love relation is new and approximately universal; leave-one-EOS-out the worst non-outlier is
+$1.81\%$ and the $\Gamma=2$ control degrades to $5.67\%$. And a directly actionable negative:
+\emph{the relativistic Cowling approximation breaks $f$-Love} --- $1.814\%$ RMS ($1.204\%$
+realistic-4) against full-GR $0.181\%$ ($0.119\%$) --- so Cowling $f$-modes cannot be used in an
+$f$-Love inversion.
+
+\begin{table}[htbp]
+\caption{Universal-relation fits, $\ln y = \sum_{k=0}^{3}a_k x^k$, 88 stars. Dimensionless
+$M\omega$ with $\omega = 2\pi f$ in km$^{-1}$, $M$ in km. RMS/max over all 7 EOS; ``real.-4'' the
+four Read \emph{et al.} EOS refit.}
+\label{tab:fits}
+\footnotesize
+\begin{ruledtabular}
+\begin{tabular}{llllccc}
+relation & $y$ & $x$ & $a_0, a_1, a_2, a_3$ & RMS & max & real.-4\\
+\hline
+$f$-Love (full GR) & $M\omega_f$ & $\ln\Lambda$ & $-1.6846, -0.05492, -0.017775, 4.981\text{e-}4$ & 0.181\% & 0.758\% & 0.035\%\\
+$f$-Love (Cowling) & $M\omega_f^{\rm cow}$ & $\ln\Lambda$ & $-1.5736, -0.04594, -0.014385, 2.020\text{e-}4$ & 1.814\% & 6.265\% & 0.586\%\\
+$w$-Love (new) & $M\omega_w$ & $\ln\Lambda$ & $-0.78206, 0.040673, -0.018318, 4.874\text{e-}4$ & 0.379\% & 1.397\% & 0.088\%\\
+$f$-I & $M\omega_f$ & $\ln\bar I$ & $-0.34324, -0.93378, 0.027140, -1.506\text{e-}3$ & 0.338\% & 1.606\% & 0.090\%\\
+Q-Love$_f$ & $\omega_f\tau_f$ & $\ln\Lambda$ & $8.1245, -0.37291, 0.065692, -1.973\text{e-}3$ & 0.994\% & 4.609\% & 0.232\%\\
+Q-Love$_w$ (new) & $\omega_w\tau_w$ & $\ln\Lambda$ & $2.1675, -0.52356, 0.047319, -1.827\text{e-}3$ & 1.042\% & 4.674\% & 0.347\%\\
+fdamp-Love & $M/\tau_f$ & $\ln\Lambda$ & $-9.8091, 0.31799, -0.083466, 2.471\text{e-}3$ & 1.138\% & 5.130\% & 0.266\%\\
+wdamp-Love (new) & $M/\tau_w$ & $\ln\Lambda$ & $-2.9496, 0.56423, -0.065636, 2.315\text{e-}3$ & 1.023\% & 5.368\% & 0.375\%\\
+AK98 $w$-freq & $R\omega_w$ & $C$ & $2.2938, -0.96552, -5.1847$ (quadratic) & 1.670\% & 5.285\% & 0.596\%\\
+AK98 $f$-freq & $f_{\rm GR}$ [kHz] & $\sqrt{\bar M/\bar R^3}$ & $0.48166, 1.79196$ (linear) & 4.564\% & 16.9\% & 3.343\%\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+%======================================================================
+\section{Results IV: the 3+1D engine census}
+\label{sec:3d}
+%======================================================================
+
+Four blocks ran and were re-run bit-for-bit by verifiers. Deviations are against the 1D value
+for the identical star. Voided rows are kept.
+
+\begin{table}[htbp]
+\caption{\texttt{CowlingEvolve3D}, $\ell=2$, $m=0$, cut-cell, 23-period records
+($\Delta f/f\approx4.4\%$). Deviation vs the 1D shooting value.}
+\label{tab:lin3d}
+\scriptsize
+\begin{ruledtabular}
+\begin{tabular}{llclccl}
+EOS & $N$ & $\sigma_{\rm KO}$ & mode & $f_{3D}$ [kHz] & $f_{1D}$ [kHz] & dev / status\\
+\hline
+$\Gamma=2$ anchor & 24/32/40/48 & 0.01 & $f$ & 1.88301/1.87560/1.87701/1.88135 & 1.88291 & $+0.005/-0.388/-0.313/-0.083\%$\\
+ & 48 & 0.01 & $p_1$ & 4.0665 & 4.10672 & $-0.98\%$\\
+ & 48 & 0.02 & $f$ & 1.89076 & 1.88291 & $+0.417\%$ ($\sigma_{\rm KO}$ systematic)\\
+ & 32, 40 & 0.004 & $f$ & 1.75235, 1.75205 & 1.88291 & $-6.93/-6.95\%$ (\texttt{cut=false} default)\\
+$\Gamma=2.5$ & 48 & 0.01 & $f$, $p_1$ & 2.23448, 5.8517 & 2.23404, 5.9007 & $+0.020\%$, $-0.83\%$\\
+$\Gamma=3$   & 48 & 0.01 & $f$, $p_1$ & 2.40545, 7.0718 & 2.40739, 7.1457 & $-0.080\%$, $-1.03\%$\\
+SLy  & 32 & 0.01 & $f$ & 2.37154 & 2.41928 & $-1.973\%$; Rich.\ $-1.024\%$\\
+     & 40, 48 & 0.01 & $f$ & \void & & surface mode grows\\
+     & 48 & 0.04 & $f$ & 2.31598 & & $-4.270\%$, KO-biased\\
+APR4 & 32 & 0.01 & $f$ & 2.45373 & 2.49463 & $-1.640\%$; Rich.\ $-0.509\%$\\
+     & 40, 48 & 0.01 & $f$ & \void & & end/start $8\times10^{14}$\\
+H4   & 32 & 0.01 & $f$ & 1.89169 & 1.94832 & $-2.907\%$; Rich. $-2.572\%$\\
+MS1  & 24 & 0.01 & $f$ & 1.69672 & 1.76756 & $-4.008\%$ (only stable $N$)\\
+     & 40, 48 & 0.04 & $f$ & 1.64607, 1.64294 & & $-6.873/-7.050\%$\\
+crusted (4) & 24, 32 & 0.01 & $p_1$ & 4.67--6.43 & 5.28--7.26 & $-10$ to $-18\%$, unresolved\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+The discriminant for the crusted-EOS instability is the surface index $n$ in
+$\varepsilon\propto(R-r)^n$: $0.50/0.67/1.005$ (stable) versus $1.84/1.87/1.95/1.95$ (unstable),
+monotone over 19 decades of end/start ratio. The atmosphere-sound-speed hypothesis was tested
+(all $77\,040$ atmosphere cells zeroed, SLy $N=48$) and refuted ($+0.596$ vs $+0.595$
+e-folds/period). No affordable configuration gives a converging crusted-EOS $f$-mode; the
+mechanism is open.
+
+\begin{table}[htbp]
+\caption{\texttt{CowlingBDNK3D}, $\ell=2$, $m=0$, $\hat\eta=0.03$, cut-cell, $\sigma_{\rm KO}=0.01$,
+$N=40$, $T=2500\,\Msun$ (22.8 periods). $\gamma_{\rm visc} = \gamma(\hat\eta)-\gamma(0)$.}
+\label{tab:bdnk3d}
+\scriptsize
+\begin{ruledtabular}
+\begin{tabular}{lcccccc}
+frame & $f_{3D}$ pencil/pgram & $f_{1D}$ polar & $\gamma_{\rm visc}$ [$10^{-3}/\Msun$] & $\tau_{\rm damp}$, $Q$ & bound violated & stable\\
+\hline
+$F_1$ & 1.87954/1.88027 & 1.9038 & 2.48251 & 1.984 ms, 11.72 & $100.0\%$ & yes ($6.4\times10^{-5}$)\\
+$F_2$ & 1.87973/1.88036 & 1.9105 & 2.48229 & 1.984 ms, 11.72 & $94.4\%$ ($94.9\%$ vol.) & yes\\
+$F_3$ & 1.88040/1.88082 & 1.9272 & 2.48139 & 1.985 ms, 11.73 & $51.3\%$ ($51.3\%$ vol.) & yes\\
+$\hat\eta=0$ & 1.87681 (all) & 1.887 & --- & --- & --- & yes\\
+$F_1,F_3$, $N{=}32$, 46 per. & --- & --- & decay const.\ to 1\% & --- & --- & 12 decades\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+Converged quantities: frame spread of $\gamma_{\rm visc}$ $0.150\to0.130\to0.045\%$ at
+$N=24/32/40$ (shrinking; the 1D $14.28\%$ was a lapse artifact and is thereby independently
+confirmed as such); $\gamma_{\rm visc}(F_1) = 2.35482\to2.44941\to2.48251\times10^{-3}$, order
+$\approx3$, Richardson $2.51$--$2.54\times10^{-3} = 96$--$97\%$ of the Navier--Stokes dissipation
+integral $0.08746\hat\eta = 2.6238\times10^{-3}$; numerical floor $\gamma(0) = 3.27/1.96/1.30
+\times10^{-3}\propto dx^{1.8}$. Not converged: the viscous frequency shift
+$+0.40/+0.28/+0.15\%$, quoted as $<0.2\%$. Two physics results. (i) The bound
+$a_2\cs^2>4/3$ is \emph{sufficient, not necessary}: $F_1$ violates it in every cell and is as
+stable as $F_3$ because the unstable band lies above $k_c = C/\hat\eta = 15.3/10.1/5.8\,\Msun^{-1}$,
+which the second-order stencil resolves only for $N>353/232/135$; moved to the cheap $\hat\eta$
+axis at $N=24$ the criterion predicts $6/6$ blow-ups in sign and $24$--$28\%$ in growth rate, and
+$F_3$ destabilises \emph{first} ($k_c$ $2.6\times$ smaller) despite violating in fewer cells.
+(ii) $a_1 = 6.25/25/100$ at fixed $a_2$ gives $f = 1.89112/1.89113/1.89123$~kHz: inert in 3D
+as in the axial sector.
+
+\begin{table}[htbp]
+\caption{\texttt{DGCart3D}, $\ell=2$, $m=0$ and $2$, octant, $p=2$, window $[0,600]\,\Msun$
+(4.6 periods, $\Delta f/f = 21.6\%$), $A = 10^{-2}$. On a non-rotating star the $m$-degeneracy is
+exact; all splitting is grid artifact.}
+\label{tab:dg3d}
+\footnotesize
+\begin{ruledtabular}
+\begin{tabular}{lccccl}
+$K$ (nodes/axis) & $f(m{=}0)$ & $f(m{=}2)$ & dev vs 1D & $|\Delta f|/f$ & status\\
+\hline
+4 (12) & 1.85758 & 1.49994 & $-1.3/-20.3\%$ & 19.25\% & \void, background collapses\\
+5 (15) & 1.47898 & 1.57348 & $-21.5/-16.4\%$ & 6.39\% & coarse\\
+6 (18) & 1.61488 & 1.55356 & $-14.2/-17.5\%$ & 3.80\% & usable\\
+8 (24) & 1.58933 & 1.55637 & $-15.6/-17.3\%$ & 2.07\% & usable\\
+10 (30) & 1.57218 & 1.58496 & $-16.5/-15.8\%$ & 0.81\% & best\\
+6, $Y_{21}$ seed, one run & 1.56352 ($q_{20}$) & 1.56366 ($q_{22}$) & $-17.0\%$ & $0.0090\%$ & degeneracy bound $\le10^{-4}$\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+The cross-run splitting falls as $h^{3.2}$ ($K=4$--$10$), consistent with the scheme's $O(h^3)$;
+the within-run $Y_{21}$ bound is $90\times$ tighter and shows the grid's genuine degeneracy
+violation is $\le10^{-4}$, the rest being run-to-run systematics. The $Y_{21}$ seed is a projection
+diagnostic, not an $m=1$ measurement: its mirror extension $|n_xn_z|$ projects onto the $E_g$
+doublet with predicted $q_{22}/q_{20} = 1.0000$, confirmed to $1.2\times10^{-4}$. The absolute
+$f$ is $-14$ to $-18\%$ at every $K$, a pre-existing undiagnosed engine systematic common-mode
+between $m=0$ and $2$. \textbf{Nonlinear amplitude dependence} (same engine, $K=8$): every shift
+for $A\le3\times10^{-2}$ is at or below the $0.82\%$ empirical floor; $A=10^{-1}$ gives
+$-1.38\pm1.02\%$, ``suggestive'', but the same point at $K=6$ gives $-7.48\pm0.90\%$ --- a
+$5.4\times$ change for a $25\%$ refinement, the signature of limiter/Rusanov dissipation rather
+than fluid nonlinearity. The second harmonic is not detected, $A(2f)/A(f)<0.09$--$0.19$ at
+$\xi/R = 0.41$. The linear engine reproduces exact amplitude proportionality to $10^{-14}$, so the
+pipeline is not the source. \emph{No nonlinear frequency shift is resolved at affordable cost.}
+
+%======================================================================
+\section{Retractions and defects}
+%======================================================================
+
+\subsection{Claims withdrawn during verification}
+\begin{itemize}
+\item Radial spectra of the piecewise polytropes (APR4 fundamental $6.6\%$ off; H4 $2.0\%$);
+root cause the Hermite-table second derivative.
+\item All $r$-mode instability windows: two of five stars were the wrong mass ($0.95$ and
+$1.93\,\Msun$ labelled $1.4$) and three more mislabelled. The algebraic result and the
+Lane--Emden $\tilde J$ stand.
+\item Polar \BDNK\ damping frame-spreads (missing lapse).
+\item Viscous axial numbers for isentropic $\Gamma=5/3$ and the phase-transition EOS at
+$\eta_c=10^{31}$ (ladders never reached it).
+\item ``$g_1/g_2$ constant to $0.1\%$ over $64\times$ in $\delta$'' --- true only for $\delta\le0.05$.
+\item Universal-relation claims about the Cowling $f$-mode's deviation from AK98 being
+monotone in compactness; the true Cowling overestimate ($+24.8$--$+29.4\%$ at $M=1.4$; $+13.9$ to
+$+32.9\%$ over the full 88-star set) is far larger than the $+5.9$--$17.2\%$ inferred from AK
+residuals.
+\item ``The pure-spectral route is $2.5\times$ more EOS-independent than $(M,R)$'' --- comparable,
+not superior, at matched parameter count.
+\item The $\ell$-ladder relation as a universal relation (algebraic identity); the $\sqrt{\ell/2}$
+scaling as anything but a fixed-mass artifact; the $i$-mode's $0.896$ factor as a universal
+constant.
+\item Early $i$-mode frequencies of $59$--$178$~Hz (defaulted-off junction).
+\item ``Converged to $0.2\%$'' and ``$f$-mode damping agrees to $3.6\%$'' from the spherical
+\BDNK\ engine (a crossing, documented in \texttt{test\_sph\_shear\_qnm.jl}).
+\end{itemize}
+
+\subsection{Defects still present in \texttt{src/}}
+\begin{enumerate}
+\item \texttt{d2pde2} has no \texttt{TabulatedBarotrope} method: the radial solver is blocked on
+every tabulated EOS.
+\item \texttt{piecewise\_polytrope} ships with $N=2000$ table nodes: a silent $6\%$ error.
+\item \texttt{RadialModes} atmosphere floor: \texttt{Inf}/\texttt{NaN} or a spurious fundamental
+depending on table bounds.
+\item \texttt{GravityModes.jl:324} classifier tie-break; \texttt{:276} scan floor above the
+$g$-tower for $\delta\lesssim0.02$.
+\item \texttt{test\_universal\_relations.jl:80} omits \texttt{Lunit\_km=1.0}.
+\item Polar operator velocity recovery omits the lapse ($\tau_R = \tau_Q/\alpha$); distinct from
+the previously fixed lapse bug in \texttt{CowlingBDNK3D}.
+\item \texttt{setup\_evo3d} default \texttt{cut=false}: $-6.95\%$ on $f$ with no symptom.
+\item $\sigma_{\rm KO}$ is an uncontrolled systematic ($\pm0.25\%$ cut-cell, $>7$~pp masked).
+\item \texttt{Background3D.build\_star3d:116} sets $\rho_0 = \varepsilon - p$, exact only for
+$\Gamma=2$; harmless to the linear engines, fatal to any nonlinear user.
+\item \texttt{DGCart3D} background erodes $-10\%$ in 4.6 periods (\texttt{\_limit!} is not
+well-balanced).
+\item \texttt{test\_frame\_independence.jl} block (c) asserts an offset that was the old BC.
+\item Julia: \texttt{2f1} is the \texttt{Float32} literal $20.0$.
+\end{enumerate}
+
+%======================================================================
+\section{Conclusions}
+%======================================================================
+
+The toolkit's one-dimensional solvers are validated against the published benchmarks they
+target to $0.02$--$0.05\%$ ($f/p$ tower), $0.0002\%$ (axial viscous), and literature grade
+(I-Love), and the \BDNK\ frame machinery reproduces the Clarisse characteristic speeds from
+$(a_1,a_2)$ alone. On that foundation: hydrodynamic observables are frame-invariant with a live
+control; $a_1$ is inert wherever the perturbation carries no scalar content; the relativistic
+Cowling approximation breaks $f$-Love and must not be used in an inversion; no two-mode ratio is
+EOS-independent, but a four-observable pure-spectral relation and a $w$-Love relation are; and
+the interface mode at a first-order phase transition is established with a structural rather than
+fitted null test. The three 3+1D engines are validated where they can be --- the linear Cowling
+$f$-mode to $<0.1\%$ on smooth barotropes, the \BDNK\ viscous damping rate at third-order
+convergence --- and their limits are recorded where they cannot: the metric is frozen, crusted
+surfaces destabilise the linear engine, the DG background erodes, and time-domain resolution at
+affordable cost is $4$--$22\%$ of $f$. The single number to fix first is
+\texttt{setup\_evo3d}'s default.
+
+\begin{acknowledgments}
+The mode census, frame study, universal-relation search and 3+1D validation were executed as
+adversarially verified agent workflows; every headline number was re-run by an independent
+verifier, and the verifiers' retractions are reproduced above.
+\end{acknowledgments}
+
+\begin{thebibliography}{99}
+\bibitem{Clarisse2025} N.~Clarisse, E.~O.~Pinho, T.~Patel, F.~S.~Bemfica, M.~Hippert and
+J.~Noronha, ``Flux-conservative BDNK hydrodynamics and shock regularization,'' arXiv:2510.16603.
+\bibitem{BDN2022} F.~S.~Bemfica, M.~M.~Disconzi and J.~Noronha, Phys.\ Rev.\ X \textbf{12},
+021044 (2022).
+\bibitem{Kovtun2019} P.~Kovtun, JHEP \textbf{10}, 034 (2019), arXiv:1907.08191.
+\bibitem{Read2009} J.~S.~Read, B.~D.~Lackey, B.~J.~Owen and J.~L.~Friedman, Phys.\ Rev.\ D
+\textbf{79}, 124032 (2009).
+\bibitem{Vasquez2021} Cowling $\ell=2$ benchmark tabulation, arXiv:2107.13339, Table~VI.
+\bibitem{Sotani2024} H.~Sotani \emph{et al.}, arXiv:2412.18569.
+\bibitem{Jaikumar2021} P.~Jaikumar \emph{et al.}, Phys.\ Rev.\ D \textbf{103}, 123009 (2021).
+\bibitem{GaertigKokkotas2009} E.~Gaertig and K.~D.~Kokkotas, Phys.\ Rev.\ D \textbf{80}, 064026
+(2009), arXiv:0905.0821.
+\bibitem{DetweilerLindblom1985} S.~Detweiler and L.~Lindblom, Astrophys.\ J.\ \textbf{292}, 12
+(1985).
+\bibitem{KGK2011} C.~J.~Kr\"uger, E.~Gaertig and K.~D.~Kokkotas, Phys.\ Rev.\ D \textbf{81},
+084019 (2010), arXiv:1106.2736.
+\bibitem{Bussieres2026} Bussi\`eres, Redondo-Yuste, Ortega-G\'omez and Cardoso, ``Axial
+oscillations of viscous neutron stars,'' arXiv:2604.13208.
+\bibitem{Hinderer2008} T.~Hinderer, Astrophys.\ J.\ \textbf{677}, 1216 (2008).
+\bibitem{Postnikov2010} S.~Postnikov, M.~Prakash and J.~M.~Lattimer, Phys.\ Rev.\ D \textbf{82},
+024016 (2010).
+\bibitem{Hartle1967} J.~B.~Hartle, Astrophys.\ J.\ \textbf{150}, 1005 (1967).
+\bibitem{LOM1998} L.~Lindblom, B.~J.~Owen and S.~M.~Morsink, Phys.\ Rev.\ Lett.\ \textbf{80},
+4843 (1998).
+\bibitem{YagiYunes2013} K.~Yagi and N.~Yunes, Science \textbf{341}, 365 (2013).
+\bibitem{AK1998} N.~Andersson and K.~D.~Kokkotas, Mon.\ Not.\ R.\ Astron.\ Soc.\ \textbf{299}, 1059
+(1998).
+\bibitem{ZhaoLattimer2022} T.~Zhao and J.~M.~Lattimer, Phys.\ Rev.\ D \textbf{106}, 123002 (2022).
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,579 @@
+\documentclass[aps,prd,reprint,amsmath,amssymb,nofootinbib,longbibliography,superscriptaddress]{revtex4-2}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black}
+\usepackage{bm}
+
+\newcommand{\Msun}{M_\odot}
+\newcommand{\kHz}{\,\mathrm{kHz}}
+\newcommand{\cs}{c_s}
+\newcommand{\BDNK}{BDNK}
+\newcommand{\void}{\textsc{void}}
+\newcommand{\de}{\delta\varepsilon}
+\newcommand{\dS}{\delta S}
+\newcommand{\dv}{\delta v}
+\newcommand{\dpp}{\delta p}
+\newcommand{\sg}{\sqrt{\gamma}}
+\newcommand{\KO}{\sigma_{\rm KO}}
+
+\begin{document}
+
+\title{A cut-cell Cartesian method for linear and causal-viscous oscillations of relativistic
+stars in the Cowling approximation}
+
+\author{N. Fernandes}
+\affiliation{California Institute of Technology, Pasadena, CA 91125, USA}
+
+\date{\today}
+
+\begin{abstract}
+We present a 3+1D time-domain method for the linear oscillations of a relativistic star on a
+frozen Tolman--Oppenheimer--Volkoff background (the Cowling approximation), on a Cartesian grid
+that does not conform to the stellar surface. The linearized fluid equations are evolved in a
+covariant-momentum form in which the factor $(\varepsilon_0+p_0)$ cancels from every right-hand
+side, removing the surface singularity of the velocity formulation; the lapse multiplying the
+Euler equation is derived from $\nabla_\mu\delta T^{\mu}{}_\nu = 0$ and shown to be essential,
+its omission producing a resolution-independent $+5\%$ frequency error. The stellar surface is
+treated by cut cells: the volume fraction and the six face apertures of every surface cell reduce
+to one-dimensional Gauss quadratures of a single disc--rectangle area, and the free-surface
+condition ($\Delta p = 0$, no mass or viscous flux through the moving boundary) is imposed at the
+true sphere $r=R$ by simply omitting the boundary face from the aperture-weighted finite-volume
+divergence. Replacing the conventional stair-stepped mask, which imposes a rigid wall, by this
+treatment moves the $\ell=2$ $f$-mode of the benchmark $\Gamma=2$ polytrope from $-6.95\%$ to
+$-0.08\%$ of the frequency-domain shooting value at $N=48$ cells across the box, with $p_1$ to
+$-1\%$; three smooth barotropes agree to $\le0.08\%$. We extend the method to
+Bemfica--Disconzi--Noronha--Kovtun (\BDNK) first-order causal viscous hydrodynamics, keeping the
+frame relaxation times so that the linearized system remains hyperbolic, with the covariant
+expansion and the lapse in both recovery equations. In the three hydrodynamic frames of
+Clarisse~\emph{et al.} the viscous damping rate of the $f$-mode is frame-invariant to $0.045\%$
+and converges at third order to $96$--$97\%$ of the Navier--Stokes dissipation integral, while
+the linear stability bound $\tau_Qw_0\cs^2 > \tfrac43\eta$ is shown to be sufficient but not
+necessary: the marginally causal frame violates it in every cell yet evolves stably for 46
+periods, because the unstable band sits above a critical wavenumber the stencil cannot resolve,
+and a frame violating it in half the star destabilizes first. We report the method's limits with
+equal weight: realistic crusted equations of state excite a growing surface mode for
+$N\ge40$ whose discriminant is the surface index $n$ in $\varepsilon\propto(R-r)^n$; the
+Kreiss--Oliger coefficient is a $\pm0.25\%$ systematic; and time-domain frequency resolution at
+affordable cost is $4\%$ of $f$, so every sub-percent figure is a parametric estimate.
+\end{abstract}
+
+\maketitle
+
+%======================================================================
+\section{Introduction}
+%======================================================================
+
+Frequency-domain eigensolvers on spherically symmetric backgrounds compute neutron-star
+oscillation modes to five or six figures and remain the standard of accuracy. A time-domain
+3+1D evolution is worse at that task by construction: its spectral resolution is $1/T$, its
+surface is not aligned with the grid, and its dissipation is not zero. The case for building one
+anyway is what it can do that the eigensolvers cannot---carry a non-axisymmetric perturbation,
+couple modes nonlinearly, and eventually sit inside a dynamical-spacetime merger code---and the
+precondition for any of that is that the linear, axisymmetric, Cowling problem be reproduced
+first. This paper is about that precondition.
+
+The difficulty is the surface. A relativistic star's density and pressure go to zero at $r=R$,
+so a Cartesian grid intersects a sphere of vanishing enthalpy along a stair-stepped set of cell
+faces. The common treatments are an atmosphere (which introduces a spurious low-density fluid),
+an excised shell (which imposes a wall inside the star), or a binary interior mask (which
+imposes a wall on the staircase). We show below that the last of these---the most natural
+choice for a linearized code, since exterior cells simply stay at zero---produces a $-7\%$
+$f$-mode frequency error that does \emph{not} converge away between $N=32$ and $N=40$, from a
+run that looks perfectly healthy. The error is not the geometric volume error of the staircase,
+which is at the $10^{-4}$ level by $N=72$; it is the boundary condition. A stationary exterior
+imposes $\dS_i = 0$ on the staircase, i.e.\ a rigid wall, where the physics of the $f$-mode
+demands a free surface that moves with the fluid. Cut cells fix the condition, not the geometry.
+
+The second subject is viscosity. The \BDNK\ formulation~\cite{BDN2022,Kovtun2019} is the first
+first-order viscous theory that is causal, linearly stable and strongly hyperbolic, at the price
+of a set of frame relaxation times $(\tau_\varepsilon,\tau_P,\tau_Q)$ on which no physical
+prediction may depend. Clarisse~\emph{et al.}~\cite{Clarisse2025} have recently tested that
+frame independence in a flux-conservative 1+1D code by running three distinct frames. We do the
+same test on a star in 3+1D, and use the stellar setting to probe the linear stability bound
+that the theory's own analysis provides.
+
+Section~\ref{sec:model} states the equations; Sec.~\ref{sec:method} the discretization,
+including the cut-cell geometry and the frequency-extraction protocol;
+Sec.~\ref{sec:validation} validates the ideal engine against a shooting solver and the
+literature; Sec.~\ref{sec:bdnk} reports the viscous results; Sec.~\ref{sec:dg} compares with a
+nonlinear discontinuous-Galerkin engine on the same problem; Sec.~\ref{sec:limits} records the
+method's limits and the defects found. Throughout, $G=c=1$; the benchmark star is the $n=1$,
+$K=100$ polytrope with $\rho_c = 1.28\times10^{-3}$, $M = 1.4002\,\Msun$, $R = 14.154$~km, whose
+relativistic-Cowling $\ell=2$ spectrum is tabulated in Ref.~\cite{Font2000} (Table~3) and
+reproduced in Ref.~\cite{Nouri2022} (Table~VI) as $f, p_1, \ldots, p_4 = 1.8825, 4.1060,
+6.0298, 7.8670, 9.6663\kHz$.
+
+%======================================================================
+\section{Physical model}
+\label{sec:model}
+%======================================================================
+
+\subsection{Background in areal-Cartesian coordinates}
+The TOV star $m' = 4\pi r^2\varepsilon$, $\nu' = 2(m+4\pi r^3p)/[r(r-2m)]$,
+$p' = -(\varepsilon+p)(m+4\pi r^3p)/[r(r-2m)]$ is integrated by RK4 and embedded in a cube
+$[-L,L]^3$, $L = 1.2R$, with $N$ cells per dimension. At each cell centre the 1D profile is
+interpolated in $r = \sqrt{x^2+y^2+z^2}$. The areal metric
+$ds^2 = -e^{\nu}dt^2 + e^{2\lambda}dr^2 + r^2d\Omega^2$, $e^{2\lambda} = (1-2m/r)^{-1}$,
+becomes in Cartesian components
+\begin{equation}
+\gamma_{ij} = \delta_{ij} + (e^{2\lambda}-1)\,n_in_j, \qquad
+\gamma^{ij} = \delta_{ij} + (e^{-2\lambda}-1)\,n_in_j,
+\end{equation}
+with $n_i = x_i/r$, $\sg = e^{\lambda}$ and lapse $\alpha = e^{\nu/2}$; the spatial metric has
+eigenvalues $(e^{2\lambda},1,1)$, a purely radial stretch. Outside $r=R$ the Schwarzschild
+exterior is used. The local gravity is $\Phi' = \nu'/2 = (m+4\pi r^3p)/[r(r-2m)]$ and
+$p_0' = -w_0\Phi'$, $w_0 \equiv \varepsilon_0 + p_0$.
+
+\subsection{Linearized Cowling equations in momentum form}
+\label{sec:cowling}
+Evolving the velocity perturbation $\dv^i$ fails at the surface: every term carries
+$1/(\varepsilon_0+p_0)$. We evolve instead the covariant momentum density
+$\dS_i = (\varepsilon_0+p_0)\dv_i$, in which that factor cancels identically from every
+right-hand side (the Valencia momentum form applied to the linear problem). With the barotropic
+closure $\dpp = \cs^2\de$ and $\dS^i = \gamma^{ij}\dS_j$,
+\begin{align}
+\partial_t\de &= -\frac{1}{\sg}\partial_i\big[\alpha\sg\,\dS^i\big] - \alpha\Phi'(n_i\dS^i),
+\label{eq:cont}\\
+\partial_t\dS_i &= -\alpha\big[\partial_i\dpp + \Phi'n_i(\dpp+\de)\big].
+\label{eq:euler}
+\end{align}
+The lapse multiplying the whole of Eq.~\eqref{eq:euler} is the load-bearing detail. It follows
+from $\nabla_\mu\delta T^{\mu}{}_\nu = 0$ written as
+$\nabla_\mu T^{\mu}{}_\nu = (1/\sqrt{-g})\partial_\mu(\sqrt{-g}\,T^{\mu}{}_\nu) - \tfrac12T^{ab}\partial_\nu g_{ab}$:
+the flux is $-(1/\sg)\partial_i(\alpha\sg\,\dpp)$, the source is
+$\alpha[-\de\Phi' + \dpp\,\partial_i\ln\sg]$, and the $\partial_i\ln\sg$ pieces cancel between
+them, leaving a \emph{bare} $\alpha$ on the flat-form right-hand side---not the
+$\alpha\sg$-inside-the-divergence form, which leaves an uncancelled $\dpp\,\partial\ln\sg$ and
+overshoots. The $\nu=t$ component of the same identity reproduces Eq.~\eqref{eq:cont} with zero
+residual, which validates the framework. Without the lapse the continuity and Euler equations
+carry different time normalizations and every mode frequency acquires a
+resolution-\emph{independent} error of $\approx+5\%$. As an independent check, reducing
+Eqs.~\eqref{eq:cont}--\eqref{eq:euler} to a single second-order radial ODE and changing dependent
+variable, $E = \phi(r)V$ with $\phi'/\phi = -[(1+3\cs^2)\alpha' + \alpha\cs^{2\prime}]/(\alpha\cs^2)$,
+carries them \emph{exactly} onto the McDermott--Van~Horn--Scholl $(W,V)$ system of the shooting
+solver~\cite{Sotani2024}; without the lapse the map does not close. The two codes therefore
+solve the same continuum problem and any residual is numerical.
+
+The Cowling $f$-mode is undamped. The physical surface condition is the vanishing of the
+Lagrangian pressure perturbation, $\Delta p = \dpp + \xi^rp_0' = 0$; for a polytrope
+$p_0'(R) = 0$ so $\dpp(R) = 0$, and there is no mass flux and no viscous traction through the
+moving surface.
+
+\subsection{\BDNK\ causal viscous extension}
+\label{sec:bdnkmodel}
+The general-frame stress tensor~\cite{BDN2022} is
+\begin{align}
+T^{\mu\nu} &= (\varepsilon+\mathcal A)u^\mu u^\nu + (P+\Pi)\Delta^{\mu\nu}\notag\\
+ &\quad - 2\eta\sigma^{\mu\nu} + u^\mu\mathcal Q^\nu + u^\nu\mathcal Q^\mu,\notag\\
+\mathcal A &= \tau_\varepsilon[D\varepsilon + w\theta],\qquad
+\Pi = -\zeta\theta + \tau_P[D\varepsilon + w\theta],\notag\\
+\mathcal Q^\nu &= \tau_Q[wDu^\nu + \cs^2\Delta^{\nu\lambda}\partial_\lambda\varepsilon],
+\label{eq:bdnk}
+\end{align}
+$D = u\cdot\nabla$, $\theta = \nabla\cdot u$, $w = \varepsilon+P$. Linearized about the static
+star with $u^\mu_0 = (1/\alpha,0,0,0)$, the conserved densities carry \emph{proper}-time
+derivatives of the primitives, $D\de = \alpha^{-1}\partial_t\de$, $(Du^i)_{\rm lin} =
+\alpha^{-1}\partial_t\dv^i$, so the recovery is diagonal and each recovered derivative is
+converted to coordinate time by a factor $\alpha$:
+\begin{align}
+\delta E &= \de + \tau_\varepsilon\big(\alpha^{-1}\partial_t\de + w_0\theta\big),\notag\\
+\partial_t\de &= \alpha\big[(\delta E-\de)/\tau_\varepsilon - w_0\theta\big],
+\label{eq:recE}\\
+\dS^i &= w_0\dv^i + (\tau_Qw_0-\eta)\,\alpha^{-1}\partial_t\dv^i + \tau_Q\cs^2\gamma^{il}\partial_l\de,\notag\\
+\partial_t\dv^i &= \frac{\alpha\big(\dS^i - w_0\dv^i - \tau_Q\cs^2\gamma^{il}\partial_l\de\big)}{\tau_Qw_0-\eta}.
+\label{eq:recS}
+\end{align}
+Three details are exact on the curved background and each was found by failing without it. The
+expansion is the four-dimensional one and carries both the lapse and $\sg$,
+$\theta = (\alpha\sg)^{-1}\partial_i(\alpha\sg\,\dv^i) = \partial_i\dv^i + (\Phi'+A'/A)(n\cdot\dv)$,
+not the flat divergence. The shear $\sigma^{ij}$ uses the closed-form Christoffels of
+$\gamma_{ij} = \delta_{ij}+(A^2-1)n_in_j$, $\Gamma^a_{bc} = n^a[g_1n_bn_c + g_2(\delta_{bc}-n_bn_c)]$,
+verified in all 27 components. And the bulk closure is pinned: $\Pi = \cs^2\mathcal A$ forces
+$\tau_P = \cs^2\tau_\varepsilon$, and using $\tau_P = \tau_\varepsilon$ instead reopens a
+primitive-feedback instability. The recovery denominator $\tau_Qw_0-\eta > 0$ is the
+causality margin (BDN condition~(a), $\rho\tau_Q > \eta$). Because the frame times are kept,
+the linearized system is hyperbolic and the diffusive CFL restriction of the Navier--Stokes
+limit---unstable for $\hat\eta\gtrsim1$---does not arise.
+
+A local analysis of the $4\times4$ longitudinal sound sector $(\delta E,\dS,\de,\dv)$ that this
+system integrates, in flat space with frozen coefficients, gives the linear stability condition
+\begin{equation}
+\tau_Q\,w_0\,\cs^2 \;>\; \tfrac43\,\eta,
+\label{eq:bound}
+\end{equation}
+\emph{not} $\tau_Qw_0 > \eta$; it was reproduced to ratio $1.0000$ in six $(\cs^2,\hat\eta)$
+combinations and is used in Sec.~\ref{sec:bdnk}.
+
+\subsection{Hydrodynamic frames}
+Clarisse~\emph{et al.}~\cite{Clarisse2025} parametrize $\tau_\varepsilon = a_1(1/T)(\eta/s)$,
+$\tau_Q = a_2(1/T)(\eta/s)$ under $a_1\ge4$, $a_2\ge3a_1/(a_1-1)$, with
+$F_1 = (25/4,25/7)$, $F_2 = (25/2,25/3)$, $F_3 = (25,25)$ and characteristic speeds
+$c_+ = 1.00, 0.85, 0.74$. $F_1$ saturates the second bound exactly, $3(25/4)/(21/4) = 25/7$,
+which is why $c_+ = 1$: it is the marginally causal frame. At zero chemical potential
+$w = sT$, so $(1/T)(\eta/s) = \eta/w$ and the stellar map is
+\begin{equation}
+\tau_\varepsilon(\bm x) = a_1\,\eta(\bm x)/w_0(\bm x),\qquad \tau_Q(\bm x) = a_2\,\eta(\bm x)/w_0(\bm x),
+\label{eq:map}
+\end{equation}
+installed cell by cell, with $\eta = \hat\eta\,\varepsilon_0$. Under Eq.~\eqref{eq:map} the bound
+\eqref{eq:bound} collapses to the $\eta$-independent $a_2\cs^2 > 4/3$. The repository
+reproduces the published $c_+$ from $(a_1,a_2)$ alone via the Kovtun large-$k$
+biquadratic~\cite{Kovtun2019}: $1.000000/0.849719/0.741915$, differing from the table by
+two-decimal rounding.
+
+%======================================================================
+\section{Numerical method}
+\label{sec:method}
+%======================================================================
+
+\subsection{Discretization}
+Second-order central differences on the $N^3$ grid, classical RK4 with $\Delta t = 0.30\,\Delta x$
+(ideal) or $0.20\,\Delta x$ (\BDNK), and fourth-derivative Kreiss--Oliger dissipation
+$-\KO\sum_d(\ldots)$ applied to every evolved field. Exterior cells are never written; interior
+cells are those with positive volume fraction (cut) or centre inside $R$ (masked). The engine is
+single-threaded; cost scales as $N^4$ with a fitted $6.9\times10^{-8}$~s per $N^4\,\Msun$ of
+evolution, i.e.\ $\sim900$~s for the production unit $N=48$, $T=2500\,\Msun$ (23 $f$-periods).
+
+\subsection{Cut-cell geometry}
+\label{sec:cutcell}
+For each cell whose centre lies within $2\Delta x$ of $r=R$ we need the volume fraction
+$\kappa$ inside the sphere and the six face apertures $a_{x\pm},a_{y\pm},a_{z\pm}$ (the fraction
+of each face inside the sphere). Both reduce to one function: the area of the intersection of a
+disc of radius $a$ with an axis-aligned rectangle $[y_0,y_1]\times[z_0,z_1]$,
+\begin{align}
+\mathcal D &= \int_{y_-}^{y_+}\!\ell(y)\,dy,\qquad y_\mp = \max(y_0,-a),\ \min(y_1,a),\notag\\
+\ell(y) &= \big[\min(z_1,\zeta) - \max(z_0,-\zeta)\big]_+,\quad \zeta = \sqrt{a^2-y^2},
+\end{align}
+evaluated by 24-point Gauss--Legendre quadrature. A face at $x = x_f$ meets the sphere in a disc
+of radius $\sqrt{R^2-x_f^2}$, so $a_{x\pm} = \mathcal D(\sqrt{R^2-x_f^2};\ldots)/\Delta x^2$
+directly; the volume fraction is a second Gauss quadrature of $\mathcal D$ over $x$ across the
+cell, $\kappa = \Delta x^{-3}\int\mathcal D\,dx$. No interface-plane reconstruction is needed.
+Quadrature returns $1\pm\mathrm{few}\,\epsilon$ for a full cell, so all seven fields are clamped to
+$[0,1]$. Verified against the analytic sphere: $\sum\kappa\,\Delta x^3 = \tfrac43\pi R^3$ to
+$10^{-3}$ at $N=32$ and the closure condition---the face-aperture area vectors balancing the
+boundary face---reproduces $4\pi R^2$ at second order. Cells with $\kappa$ below a floor
+$\kappa_{\min} = 0.5$ use $\kappa_{\min}$ in the denominator (a small-cell treatment).
+
+\subsection{Aperture-weighted divergences and the free surface}
+Every spatial derivative in Eqs.~\eqref{eq:cont}--\eqref{eq:euler} is a divergence or a gradient,
+and both are evaluated in finite-volume form. For the continuity flux $F^i = \alpha\sg\,\dS^i$,
+\begin{align}
+(\nabla\!\cdot\!F)_{ijk} = \frac{1}{\kappa_c\Delta x}\Big[&a_{x+}\tfrac12(F^x_{i}+F^x_{i+1})\notag\\
+ &- a_{x-}\tfrac12(F^x_{i-1}+F^x_i) + (y) + (z)\Big],
+\label{eq:divF}
+\end{align}
+with face values the second-order average of the adjacent cell-centred fluxes. The gradient of
+$\dpp$ uses the divergence theorem in the same form, $\int\partial_j\dpp\,dV = \oint\dpp\,n_j\,dA$,
+so coordinate faces contribute $a\,\dpp$; and the viscous force $\partial_j\pi^{ij}$ likewise.
+\emph{The boundary face does not appear in any of these sums.} That omission \emph{is} the
+free-surface boundary condition: the boundary face would contribute $\dS^i n_i A_b$ (mass flux),
+$\dpp_bn_jA_b$ (pressure) and $\pi^{ij}n_jA_b$ (traction), all of which vanish for a free
+surface that moves with the fluid and carries $\Delta p = 0$. The condition is thereby imposed at
+the true sphere, and the exterior is never referenced. In the masked engine, by contrast, the
+central stencil just inside the staircase reads the frozen exterior zeros, imposing $\de = 0$
+(correct, since $\dpp(R)=0$) \emph{and} $\dS_i = 0$---a rigid wall. This is the whole difference,
+and Sec.~\ref{sec:validation} quantifies it.
+
+Two remedies that do \emph{not} work are recorded so they are not retried. Zero-gradient
+extrapolation of $\dS$ into an exterior collar with $\de = 0$ makes the mode collapse
+($-61\%$ at $N=32$, $-83\%$ at $N=44$): momentum in a region with no pressure restoring force
+plus a spurious mass flux in the continuity stencil. And an excised shell (evolving only
+$w_0 \ge f_{\rm exc}\max w_0$) merely moves the wall inward, giving $+2.6\%$ at $f_{\rm exc}=0.02$
+and $+8.2\%$ at $0.08$.
+
+\subsection{Seeding and diagnostics}
+The $\ell=2$, $m=0$ seed is $\de = A\,\varepsilon_0\,(r/R)\,(2z^2-x^2-y^2)/r^2$ with
+$A = 10^{-3}$ (\BDNK: a radial-velocity seed). The diagnostic is the $\sg$-weighted
+quadrupole $q_{20}(t) = \sum\de\,(2n_z^2-n_x^2-n_y^2)\,\sg\,\Delta x^3$ over interior cells, and
+the central $\de$. Because the code is linear, amplitude proportionality is exact to
+$10^{-14}$ (verified over $\times100$ and $\times3000$), which makes the linear engine the
+control for any nonlinear-engine claim (Sec.~\ref{sec:dg}).
+
+\subsection{Frequency extraction and its resolution}
+\label{sec:extract}
+Two independent estimators are applied to every record and must agree: a direct periodogram
+$|\sum_nq_n e^{-i\omega t_n}|^2$ with parabolic refinement of the peak, and a matrix pencil
+(Hankel SVD, 14--16 poles) on the record decimated to $\sim600$ samples. Every record is gated
+before either is applied: finiteness, and the ratio of the envelope at the end to that at the
+start; a growing record is re-analysed on its largest clean window, and if that window is
+shorter than ten periods the row is voided rather than reported. A record of length $T$ has
+spectral resolution $\Delta f = 1/T$, which at the production $T = 2500\,\Msun$ is
+$0.083\kHz = 4.4\%$ of $f$. \emph{Every sub-percent figure below is therefore a parametric peak
+estimate, quoted only where the two estimators agree, and no third decimal is meaningful.}
+Buying record length does not help: at $\KO = 0.004$, $T = 12000$ actively degrades the answer as
+a late-time surface mode takes over ($-0.30\%\to-1.67\%$). The damping rate is the slope of a
+log-linear fit to the local-maximum envelope, returning \texttt{NaN} (not zero) when fewer than
+three peaks exist.
+
+The viscous damping is measured by a \emph{difference protocol}: every frame is run twice at
+identical grid and frame times, once at $\hat\eta$ and once at $\hat\eta=0$, and
+$\gamma_{\rm visc} = \gamma(\hat\eta)-\gamma(0)$. The numerical floor $\gamma(0)$ from
+Kreiss--Oliger and the surface is $1.30\times10^{-3}\,\Msun^{-1}$ at $N=40$---$52\%$ of the
+viscous rate---so quoting $\gamma(\hat\eta)$ raw would overstate the damping by $1.5\times$.
+
+%======================================================================
+\section{Validation of the ideal engine}
+\label{sec:validation}
+%======================================================================
+
+\subsection{The benchmark star}
+Table~\ref{tab:anchor} is the central validation. With cut cells at $N=48$ the $f$-mode is
+$-0.083\%$ from the shooting value and $p_1$ is $-0.98\%$; the masked engine at the same
+$\KO$ is $-6.95\%$ at both $N=32$ and $N=40$, i.e.\ the error does not converge in this range
+and would be reported as a healthy result by any pipeline that did not compare to a reference.
+The cut-cell sequence $N = 24/32/40/48$ is non-monotone ($+0.005/-0.39/-0.31/-0.08\%$), so no
+convergence order can be fitted, Richardson extrapolation on (40,48) makes the answer
+\emph{worse} ($+0.44\%$), and the honest error bar is the $N$-spread of $\pm0.4\%$ rather than
+the $N=48$ residual. The Kreiss--Oliger coefficient is a systematic of the same size:
+$\KO = 0.02$ gives $+0.42\%$ at $N=48$, bracketing the reference from above, and any cut-cell
+frequency must state $\KO$; on the masked path it is worth more than seven points. $p_2$
+($5.771$ vs $6.031\kHz$) is not resolved at these record lengths.
+
+\begin{table}[tb]
+\footnotesize
+\caption{Benchmark $\Gamma=2$ polytrope, $\ell=2$, $m=0$, $T=2500\,\Msun$ (23 periods,
+$\Delta f/f = 4.4\%$), $\kappa_{\min}=0.5$. Reference: shooting solver, $f = 1.88291$,
+$p_1 = 4.10672\kHz$. Periodogram values; matrix pencil agrees to $\le0.13\%$ in every row.}
+\label{tab:anchor}
+\begin{ruledtabular}
+\begin{tabular}{lcclcc}
+surface & $N$ & $\KO$ & mode & $f$ [kHz] & dev\\
+\hline
+cut    & 24 & 0.01 & $f$ & 1.88301 & $+0.005\%$\\
+cut    & 32 & 0.01 & $f$ & 1.87560 & $-0.388\%$\\
+cut    & 40 & 0.01 & $f$ & 1.87701 & $-0.313\%$\\
+cut    & 48 & 0.01 & $f$ & \textbf{1.88135} & $\bm{-0.083\%}$\\
+cut    & 48 & 0.01 & $p_1$ & 4.0665 & $-0.98\%$\\
+cut    & 48 & 0.02 & $f$ & 1.89076 & $+0.417\%$\\
+masked & 32 & 0.004 & $f$ & 1.75235 & $-6.93\%$\\
+masked & 40 & 0.004 & $f$ & 1.75205 & $-6.95\%$\\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+The literature target is the \emph{linear} Cowling column of Font~\emph{et al.}~\cite{Font2000}
+(Table~3, Model~2), $1.8825\kHz$, which our shooting solver reproduces to $0.02\%$. Font's
+same table lists a nonlinear HRSC evolution on a fixed spacetime at $1.852\kHz$; the $1.7\%$
+gap is a finite-amplitude effect our linearized code must not reproduce, and the full-GR value
+for this star, $1.578$--$1.586\kHz$~\cite{KrugerKokkotas2020,Nouri2022}, is $19\%$ below
+Cowling and is not a valid comparison for a frozen-metric engine.
+
+\subsection{Across equations of state}
+\label{sec:eos}
+The background builder accepts any barotrope, and the Read~\emph{et al.} piecewise polytropes
+SLy, APR4, H4 and MS1~\cite{Read2009} reproduce their 1D masses and radii to six figures on the
+grid. Table~\ref{tab:eos} shows the outcome. The three smooth analytic barotropes converge to
+$\le0.08\%$ at $N=48$, all dipping to $-0.3$ to $-0.7\%$ at intermediate $N$ first. The four
+crusted EOS behave differently: at $\KO = 0.01$ a surface mode grows at $+0.7$ to $+1.6$
+e-folds per $f$-period for $N\ge40$ (end/start amplitude ratios $4\times10^{11}$ to
+$8\times10^{14}$ over 23 periods), so they are usable only at $N\le32$, at $-1.6$ to $-4\%$;
+Richardson on the monotone (24,32) pair gives $-0.5\%$ (APR4) to $-2.6\%$ (H4).
+
+\begin{table*}[tb]
+\caption{Cut-cell $f$-mode across EOS at $M\simeq1.4\,\Msun$, $\KO=0.01$ unless stated,
+against the shooting value for the identical star. R = Richardson on the monotone (24,32) pair.}
+\label{tab:eos}
+\begin{ruledtabular}
+\begin{tabular}{llccl}
+EOS ($M/\Msun$, $R$/km) & $N$ & $f_{3D}$ & $f_{1D}$ & dev\\
+\hline
+$\Gamma=2$ (1.400, 14.15) & 48 & 1.88135 & 1.88291 & $-0.083\%$\\
+$\Gamma=2.5$ & 48 & 2.23448 & 2.23404 & $+0.020\%$\\
+$\Gamma=3$   & 48 & 2.40545 & 2.40739 & $-0.080\%$\\
+SLy (1.421, 11.67) & 32 & 2.37154 & 2.41928 & $-1.97\%$; R $-1.02\%$\\
+ & 40, 48 & \void & & surface mode\\
+ & 48, $\KO{=}0.04$ & 2.31598 & & $-4.27\%$ (biased)\\
+APR4 (1.360, 11.31) & 32 & 2.45373 & 2.49463 & $-1.64\%$; R $-0.51\%$\\
+ & 40, 48 & \void & & end/start $8\times10^{14}$\\
+H4 (1.406, 13.93) & 32 & 1.89169 & 1.94832 & $-2.91\%$; R $-2.57\%$\\
+MS1 (1.359, 14.90) & 24 & 1.69672 & 1.76756 & $-4.01\%$ (only stable $N$)\\
+ & 40, 48, $\KO{=}0.04$ & 1.646, 1.643 & & $-6.9$, $-7.1\%$\\
+\end{tabular}
+\end{ruledtabular}
+\end{table*}
+
+What discriminates the two classes is neither compactness, stiffness nor tabulation but the
+steepness of the surface. Writing $\varepsilon\propto(R-r)^n$ between $0.99R$ and $0.999R$, the
+effective index is $n = 0.50, 0.67, 1.005$ for $\Gamma = 3, 2.5, 2$ (stable) and
+$1.84, 1.87, 1.95, 1.95$ for MS1, H4, APR4, SLy (unstable), and the ordering in $n$ is the ordering
+in the $N=48$ end/start ratio, monotone over nineteen decades with no exception. The SLy crust's
+outermost segment has $\Gamma\simeq1.58$, hence $n = 1/(\Gamma-1)\simeq1.7$--$2.0$, and
+$\varepsilon_0+p_0$ falls by a factor $\sim500$ across one grid cell exactly where the apertures
+are partial, against $0.44$--$0.70$ for the analytic EOS. This is a correlation across seven EOS,
+not a demonstrated mechanism; the one causal hypothesis tested---that the finite atmosphere
+sound speed of the tabulated EOS ($\cs^2\sim3\times10^{-5}$ versus $10^{-10}$--$10^{-19}$) drives
+it---was refuted directly by zeroing $\cs^2$ in all $77\,040$ atmosphere cells of the SLy
+$N=48$ run: growth $+0.596$ versus $+0.595$ e-folds per period. Raising $\KO$ to $0.04$
+stabilizes every crusted run for the full 23 periods but biases $f$ by $-3.8$ to $-7.1\%$, with the
+bias \emph{growing} with $N$; there is no configuration we could afford that gives a converging
+crusted-EOS $f$-mode, and the mechanism is open.
+
+%======================================================================
+\section{Causal viscous results}
+\label{sec:bdnk}
+%======================================================================
+
+\subsection{Frame robustness of the damped $f$-mode}
+Table~\ref{tab:frames} gives the $\ell=2$ $f$-mode at fixed physical viscosity $\hat\eta=0.03$,
+$\zeta=0$, in the three Clarisse frames, with the $\hat\eta=0$ control and the difference
+protocol. The frame times under Eq.~\eqref{eq:map} are nearly uniform across the star because
+$\eta\propto\varepsilon_0$: $\tau_\varepsilon\in[0.168,0.188]$, $[0.337,0.375]$, $[0.674,0.750]\,\Msun$
+for $F_{1,2,3}$.
+
+\begin{table*}[tb]
+\caption{\BDNK\ $f$-mode in the three frames, $\hat\eta=0.03$, cut cells, $\KO=0.01$, $N=40$,
+$T=2500\,\Msun$ (22.8 periods). $\gamma_{\rm visc}=\gamma(\hat\eta)-\gamma(0)$; 1D polar values
+from the $\ell$-reduced frequency-domain operator with the corrected free-surface BC.}
+\label{tab:frames}
+\begin{ruledtabular}
+\begin{tabular}{lcccc}
+ & $F_1$ & $F_2$ & $F_3$ & spread\\
+\hline
+$(a_1,a_2)$ & $(25/4,25/7)$ & $(25/2,25/3)$ & $(25,25)$ & \\
+$f$ pencil [kHz] & 1.87954 & 1.87973 & 1.88040 & $0.046\%$\\
+$f$ periodogram & 1.88027 & 1.88036 & 1.88082 & $0.029\%$\\
+$f$, 1D polar & 1.9038 & 1.9105 & 1.9272 & $1.22\%$\\
+$f$, $\hat\eta=0$ control & 1.87681 & 1.87681 & 1.87681 & $0$\\
+$\gamma_{\rm visc}$ [$10^{-3}\Msun^{-1}$] & 2.48251 & 2.48229 & 2.48139 & $\bm{0.045\%}$\\
+$\tau_{\rm damp}$, $Q$ & 1.984 ms, 11.72 & 1.984 ms, 11.72 & 1.985 ms, 11.73 & \\
+cells violating \eqref{eq:bound} & $100\%$ & $94.4\%$ & $51.3\%$ & \\
+stable, 22.8 periods & yes & yes & yes & \\
+\end{tabular}
+\end{ruledtabular}
+\end{table*}
+
+The frame spread of the damping rate shrinks with resolution, $0.150\to0.130\to0.045\%$ at
+$N=24/32/40$, the signature of a frame-invariant physical rate whose apparent spread is
+discretization residue. The rate itself converges at observed order $\approx3$
+($2.35482\to2.44941\to2.48251\times10^{-3}$; successive differences in ratio $2.86$), and
+Richardson extrapolation gives $2.51$--$2.54\times10^{-3}\,\Msun^{-1}$, which is $96$--$97\%$ of
+the Newtonian-form Navier--Stokes dissipation integral $0.08746\,\hat\eta = 2.6238\times10^{-3}$
+for this star---a few-percent causal suppression in the expected direction. The frame spread of
+the frequency, $<0.05\%$, is an upper bound only ($\Delta f/f = 4.4\%$), but is $25\times$ smaller
+than the $1.22\%$ of the 1D polar operator; that operator's own damping rates were withheld
+after its velocity recovery was found to omit the lapse, and the 3D engine---which carries the
+lapse in Eq.~\eqref{eq:recS}---independently confirms the retraction. The viscous frequency
+shift relative to the inviscid control ($+0.40/+0.28/+0.15\%$ at $N=24/32/40$) is \emph{not}
+converged and is quoted only as $<0.2\%$.
+
+\subsection{$a_1$ is inert}
+Holding $a_2 = 25$ and sweeping $a_1 = 6.25/25/100$ gives $f = 1.89112/1.89113/1.89123\kHz$
+(spread $0.006\%$) and $\gamma = 5.618/5.621/5.630\times10^{-3}$ (spread $0.22\%$) over a
+$16\times$ range. The three Clarisse frames differ in the stellar polar sector through $a_2$
+alone. In the axial sector this is exact---$\mathcal A$ is a scalar and odd-parity perturbations
+carry no scalar content---and here it is empirical.
+
+\subsection{The stability bound is sufficient, not necessary}
+\label{sec:stability}
+$F_1$ violates Eq.~\eqref{eq:bound} in $100\%$ of cells and $100\%$ of proper volume, yet
+evolves stably for 46 periods through twelve decades of decay with a window-by-window decay rate
+constant to $1\%$; it is as clean as $F_3$, which violates it in $51\%$. The local sound-sector
+analysis explains why. The unstable band lies above a critical wavenumber
+$k_c = C/\hat\eta$ with $C = 0.4599, 0.3019, 0.1753$ for $F_{1,2,3}$ (minimum over the star, always
+at $r/R = 0.994$), i.e.\ $k_c = 15.3, 10.1, 5.8\,\Msun^{-1}$ at $\hat\eta = 0.03$. The
+second-order centred stencil caps the effective wavenumber at $k_{\rm eff} = \sin(kh)/h \le 1/h =
+N/23.0$, so the unstable band is resolved only for $N > 353, 232, 135$---beyond reach at
+$\sim N^4$ cost. The criterion ``unstable iff $k_c < 1/h$'' was therefore tested on the cheap
+$\hat\eta$ axis at $N=24$ ($1/h = 1.043$): six predictions, six correct in sign, with growth
+rates agreeing to $24$--$28\%$ where growth is well developed ($F_1$, $\hat\eta=1.0$: predicted
+$3.50\times10^{-2}$, measured $4.49\times10^{-2}$). And the ordering inverts: at $\hat\eta=0.60$,
+$F_3$ blows up ($q_{20}$ grows $5\times10^4$) while $F_1$ decays, because $k_c(F_3)$ is
+$2.6\times$ smaller. \emph{The violation fraction does not order the instability; the critical
+wavenumber does.} The published fractions $60.7\%$ and $21.4\%$ from the 1D radial grid for
+$F_2,F_3$ are a counting artifact; the 3D cell fractions match the 1D proper-\emph{volume}
+fractions ($94.6\%$, $52.6\%$) to $<1\%$.
+
+%======================================================================
+\section{Comparison with a nonlinear DG engine}
+\label{sec:dg}
+%======================================================================
+
+The same problem was run in a full 3+1D nodal Runge--Kutta discontinuous-Galerkin Valencia
+GRHydro code on the frozen metric (densitized conserved variables, directional Rusanov sweeps,
+SSP-RK3, TVB/Zhang--Shu limiter, atmosphere, well-balanced background subtraction), on an octant
+grid with a full 3-momentum. It is the only engine here that can carry a non-axisymmetric
+perturbation, and it does: a $\mathrm{Re}\,Y_{22}\propto n_x^2-n_y^2$ seed is detected by the
+$m=2$ quadrupole with contrast $3\times10^5$--$5\times10^6$ over the $m=0$ seed at every
+resolution. On a non-rotating star the $m$-degeneracy is exact, so the measured
+$|f(m{=}2)-f(m{=}0)|/f$ of $6.4/3.8/2.1/0.81\%$ at $K = 5/6/8/10$ elements per axis is a grid
+artifact falling as $h^{3.2}$, consistent with the scheme's $O(h^3)$; a single run seeded with
+$Y_{21}$, whose mirror extension populates both $E_g$ channels on one background, bounds the
+grid's genuine degeneracy violation at $9\times10^{-5}$. Two facts, however, make the linear
+cut-cell method the one to use for precision. The DG background is not static: the well-balanced
+subtraction is exact but the limiter is not, and $\rho_c$ erodes $-10\%$ by $4.6$ periods and
+$-31$ to $-43\%$ by $3000\,\Msun$, capping the usable record at $\Delta f/f = 21.6\%$ and putting
+its absolute $f$ at $-16\%$. And the octant's three separate reflections admit only the $E_g$
+doublet $\{Y_{20},\mathrm{Re}\,Y_{22}\}$; the entire $T_{2g}$ triplet, including all of $m=1$, is
+structurally absent from the domain. A search for nonlinear amplitude dependence in the DG
+engine returned no resolved shift: the one suggestive point ($-1.4\pm1.0\%$ at seed amplitude
+$0.1$, $K=8$) becomes $-7.5\pm0.9\%$ at $K=6$, a $5.4\times$ change for a $25\%$ refinement, and
+no second harmonic is detected ($A_{2f}/A_f < 0.09$--$0.19$ at $\xi/R = 0.41$). The linear engine's
+exact amplitude proportionality was the control that established this.
+
+%======================================================================
+\section{Limitations and defects}
+\label{sec:limits}
+%======================================================================
+
+\emph{Structural.} The metric is frozen: no gravitational-wave damping, no $w$-modes, no tidal
+deformability. The engine is linear and seeds $\ell=2$, $m=0$ only; extending the seed and the
+diagnostic to $\mathrm{Re}\,Y_{22}$ on the full cube is a small change and the natural next step,
+and would give an $m$-degeneracy test free of the DG engine's erosion.
+
+\emph{Numerical.} Time-domain resolution at affordable cost is $\Delta f/f = 4.4\%$; $\KO$ is a
+$\pm0.25\%$ systematic; the cut-cell path develops a late-time growing surface mode at
+$\KO = 0.004$ for $N\ge32$ (growth $3\times10^{-4}$ to $9\times10^{-3}\,\Msun^{-1}$ from $N=32$
+to $56$), cured at $\KO=0.01$ through $N=48$ but unverified above; realistic crusted EOS are
+limited to $N\le32$; the numerical damping floor $\gamma(0)\approx1.2\times10^{-3}\,\Msun^{-1}$ at
+$N=48$ is a hard floor under any viscous measurement without the difference protocol; and $p_2$
+is not resolved.
+
+\emph{Defects found in the code, all recorded rather than silently fixed.} The
+\texttt{setup\_evo3d} default is \texttt{cut=false}, i.e.\ the $-6.95\%$ masked engine, with no
+symptom. The background builder sets $\rho_0 = \varepsilon-p$, exact only for $\Gamma=2$; harmless
+to these linear engines, which never read $\rho_0$, but fatal to any nonlinear user. The
+$\ell$-reduced 1D polar operator's velocity recovery omits the lapse. And a Julia lexical trap:
+\texttt{2f1} parses as the \texttt{Float32} literal $20.0$, not $2\,f_1$, which turned a
+harmonic search into a fake null until a synthetic-injection test caught it.
+
+%======================================================================
+\section{Conclusions}
+%======================================================================
+
+A linearized Cowling evolution on a non-conforming Cartesian grid reproduces the frequency-domain
+$f$-mode of smooth relativistic polytropes to better than $0.1\%$ once two things are right that
+are easy to get wrong: the lapse on the Euler equation, and the boundary condition at the stellar
+surface. The first is a derivation. The second is a cut-cell finite-volume divergence from which
+the boundary face is simply absent---which imposes a free surface at the true sphere instead of a
+rigid wall on the staircase, and is worth seven percent. Extended to \BDNK\ with the frame times
+kept and the recovery written in proper time, the engine gives a viscous damping rate that is
+frame-invariant to $0.045\%$, converges at third order to within a few percent of the
+Navier--Stokes dissipation integral, and exposes the linear stability bound of the theory as
+sufficient but not necessary on a star, with the critical wavenumber rather than the violation
+fraction controlling onset. The crusted-EOS surface instability is the open problem; its
+discriminant is known and its mechanism is not.
+
+\begin{acknowledgments}
+The validation runs, the frame study and the DG comparison were executed as adversarially
+verified agent workflows: every headline number was re-run by an independent verifier, and the
+verifiers' retractions are incorporated above.
+\end{acknowledgments}
+
+\begin{thebibliography}{99}
+\bibitem{BDN2022} F.~S.~Bemfica, M.~M.~Disconzi and J.~Noronha, Phys.\ Rev.\ X \textbf{12},
+021044 (2022).
+\bibitem{Kovtun2019} P.~Kovtun, JHEP \textbf{10}, 034 (2019), arXiv:1907.08191.
+\bibitem{Clarisse2025} N.~Clarisse, E.~O.~Pinho, T.~Patel, F.~S.~Bemfica, M.~Hippert and
+J.~Noronha, ``Flux-conservative BDNK hydrodynamics and shock regularization,'' arXiv:2510.16603.
+\bibitem{Font2000} J.~A.~Font, N.~Stergioulas and K.~D.~Kokkotas, Mon.\ Not.\ R.\ Astron.\ Soc.\
+\textbf{313}, 678 (2000).
+\bibitem{Nouri2022} F.~H.~Nouri, S.~Bose, M.~D.~Duez and A.~Das, arXiv:2107.13339.
+\bibitem{KrugerKokkotas2020} C.~J.~Kr\"uger and K.~D.~Kokkotas, Phys.\ Rev.\ D \textbf{102},
+064026 (2020), arXiv:2008.04127.
+\bibitem{Sotani2024} H.~Sotani \emph{et al.}, arXiv:2412.18569.
+\bibitem{Read2009} J.~S.~Read, B.~D.~Lackey, B.~J.~Owen and J.~L.~Friedman, Phys.\ Rev.\ D
+\textbf{79}, 124032 (2009).
+\end{thebibliography}
+
+\end{document}
