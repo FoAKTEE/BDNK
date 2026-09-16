@@ -52,15 +52,19 @@ Bemfica--Disconzi--Noronha--Kovtun (\BDNK) first-order causal viscous hydrodynam
 frame relaxation times so that the linearized system remains hyperbolic, with the covariant
 expansion and the lapse in both recovery equations. In the three hydrodynamic frames of
 Clarisse~\emph{et al.} the viscous damping rate of the $f$-mode is frame-invariant to $0.045\%$
-and converges at third order to $96$--$97\%$ of the Navier--Stokes dissipation integral, while
+and converges to $99\%$ of the Navier--Stokes dissipation integral; the viscous frequency shift,
+once the Kreiss--Oliger artifact that dominated it is removed, converges to the parameter-free
+damped-oscillator value $-(\gamma^2-\gamma_0^2)/2\omega^2$ ($-0.125\%$ measured against
+$-0.133\%$ predicted at $N=48$); while
 the linear stability bound $\tau_Qw_0\cs^2 > \tfrac43\eta$ is shown to be sufficient but not
 necessary: the marginally causal frame violates it in every cell yet evolves stably for 46
 periods, because the unstable band sits above a critical wavenumber the stencil cannot resolve,
 and a frame violating it in half the star destabilizes first. We report the method's limits with
 equal weight: realistic crusted equations of state excite a growing surface mode for
 $N\ge40$ whose discriminant is the surface index $n$ in $\varepsilon\propto(R-r)^n$; the
-Kreiss--Oliger coefficient is a $\pm0.25\%$ systematic; and time-domain frequency resolution at
-affordable cost is $4\%$ of $f$, so every sub-percent figure is a parametric estimate.
+Kreiss--Oliger coefficient is a $\pm0.25\%$ systematic on absolute frequencies and the dominant
+one on viscous frequency shifts; and time-domain frequency resolution at affordable cost is $4\%$
+of $f$, so every sub-percent figure is a parametric estimate.
 \end{abstract}
 
 \maketitle
@@ -486,15 +490,17 @@ The frame spread of the damping rate shrinks with resolution, $0.150\to0.130\to0
 $N=24/32/40$, the signature of a frame-invariant physical rate whose apparent spread is
 discretization residue. The rate itself converges at observed order $\approx3$
 ($2.35482\to2.44941\to2.48251\times10^{-3}$; successive differences in ratio $2.86$), and
-Richardson extrapolation gives $2.51$--$2.54\times10^{-3}\,\Msun^{-1}$, which is $96$--$97\%$ of
-the Newtonian-form Navier--Stokes dissipation integral $0.08746\,\hat\eta = 2.6238\times10^{-3}$
-for this star---a few-percent causal suppression in the expected direction. The frame spread of
+Richardson extrapolation gives $2.51$--$2.54\times10^{-3}\,\Msun^{-1}$. That sequence is at
+$\KO = 0.01$; at $\KO = 0.005$ the matrix-pencil rate is $2.597\times10^{-3}$ at $N=40$ and
+$2.607\times10^{-3}$ at $N=48$---$99.2\%$ of the Newtonian-form Navier--Stokes dissipation
+integral $0.08746\,\hat\eta = 2.6238\times10^{-3}$ for this star. The apparent few-percent
+``causal suppression'' of the $\KO=0.01$ sequence was Kreiss--Oliger bias. The frame spread of
 the frequency, $<0.05\%$, is an upper bound only ($\Delta f/f = 4.4\%$), but is $25\times$ smaller
 than the $1.22\%$ of the 1D polar operator; that operator's own damping rates were withheld
 after its velocity recovery was found to omit the lapse, and the 3D engine---which carries the
 lapse in Eq.~\eqref{eq:recS}---independently confirms the retraction. The viscous frequency
-shift relative to the inviscid control ($+0.40/+0.28/+0.15\%$ at $N=24/32/40$) is \emph{not}
-converged and is quoted only as $<0.2\%$.
+shift relative to the inviscid control is the one quantity that required a dedicated
+convergence study (Sec.~\ref{sec:shift}).
 
 \subsection{$a_1$ is inert}
 Holding $a_2 = 25$ and sweeping $a_1 = 6.25/25/100$ gives $f = 1.89112/1.89113/1.89123\kHz$
@@ -502,6 +508,35 @@ Holding $a_2 = 25$ and sweeping $a_1 = 6.25/25/100$ gives $f = 1.89112/1.89113/1
 $16\times$ range. The three Clarisse frames differ in the stellar polar sector through $a_2$
 alone. In the axial sector this is exact---$\mathcal A$ is a scalar and odd-parity perturbations
 carry no scalar content---and here it is empirical.
+
+\subsection{The viscous frequency shift}
+\label{sec:shift}
+At $\KO = 0.01$ the shift $\Delta f/f = f(\hat\eta)/f(0) - 1$ measured $+0.40/+0.28/+0.15\%$ at
+$N = 24/32/40$ with non-shrinking differences, and could only be quoted as an upper bound. Two
+observations settled it (33 runs; \texttt{repro/bdnk3d\_viscous\_shift.jl}). First, with the
+frame times held fixed and $\hat\eta$ swept, the shift is roughly linear in $\hat\eta$, whereas
+every physical mechanism---the damped-oscillator correction and the reactive frame terms---is
+second order. Second, halving $\KO$ removes $\approx0.35\%$ of the shift at every $N$: a physical
+shift cannot depend on the dissipation coefficient, so the positive shift was a Kreiss--Oliger
+artifact. What survives at $\KO = 0.005$ converges to the damped-oscillator value, which has no
+free parameter because both damping rates are measured in the same runs:
+\begin{equation}
+\frac{\Delta f}{f} = -\frac{\gamma_{\rm tot}^2 - \gamma_0^2}{2\omega^2}.
+\label{eq:dosc}
+\end{equation}
+At $\hat\eta = 0.03$ the measured shift (mean of the two estimators) against
+Eq.~\eqref{eq:dosc} is $+0.05/-0.20\%$, $-0.03/-0.16\%$, $-0.08/-0.13\%$ and
+$-0.125/-0.133\%$ at $N = 24/32/40/48$; the residual $+0.25\to+0.13\to+0.05\to+0.01\%$ falls
+roughly as $h^3$, and at $N=40$ the $\hat\eta$-dependence is quadratic once that offset is
+removed ($\hat\eta = 0.015, 0.03, 0.045$). Frame-reactive corrections are $O(\tau^2\omega^2)
+\approx 3\times10^{-5}$, below resolution. The converged statement is
+$\Delta f/f(\hat\eta{=}0.03) = -0.125\pm0.013\%$, the damped-oscillator shift. Three protocol
+facts the data enforce: the frame must be held fixed while $\hat\eta$ is swept, or the
+$\eta$-dependence is entangled with $\tau\propto\hat\eta$; the inviscid control becomes unstable
+below $\KO\approx0.005$ at $N = 24$ and $32$ (the cut-cell surface mode) while viscous runs
+survive to $0.00125$, so $\KO = 0.005$ is the floor of the difference protocol and is set by the
+control; and the compact viscous stencil (\texttt{visc\_compact}) shifts $f$ by $+0.15\%$ and
+cuts $\gamma_{\rm visc}$ by $32\%$ at $N=24$ and is not to be used for the mode.
 
 \subsection{The stability bound is sufficient, not necessary}
 \label{sec:stability}
@@ -566,7 +601,8 @@ damping, floor, Rayleigh resolution, stability flag and bound-violation fraction
 $N=24$.
 
 \emph{Numerical.} Time-domain resolution at affordable cost is $\Delta f/f = 4.4\%$; $\KO$ is a
-$\pm0.25\%$ systematic; the cut-cell path develops a late-time growing surface mode at
+$\pm0.25\%$ systematic on absolute frequencies and, at $\KO=0.01$, produced a spurious
+$+0.3\%$ viscous frequency shift (Sec.~\ref{sec:shift}); the cut-cell path develops a late-time growing surface mode at
 $\KO = 0.004$ for $N\ge32$ (growth $3\times10^{-4}$ to $9\times10^{-3}\,\Msun^{-1}$ from $N=32$
 to $56$), cured at $\KO=0.01$ through $N=48$ but unverified above; realistic crusted EOS are
 limited to $N\le32$; the numerical damping floor $\gamma(0)\approx1.2\times10^{-3}\,\Msun^{-1}$ at

@@ -77,18 +77,33 @@
         violation FRACTION does not order the instability; the critical WAVENUMBER does.
         `τ_stab` remains available as a safety factor for constant-τ̂ runs.
     THREE-FRAME RESULT (η̂=0.03, cut, σ_ko=0.01, N=24/32/40, difference protocol):
-        γ_visc(F₁) = 2.35482e−3 → 2.44941e−3 → 2.48251e−3 /M⊙, observed order ≈3,
-        Richardson 2.51–2.54e−3 = 96–97% of the NS dissipation integral 0.08746·η̂;
+        γ_visc(F₁) = 2.35482e−3 → 2.44941e−3 → 2.48251e−3 /M⊙, observed order ≈3;
         frame spread of γ_visc 0.150% → 0.130% → 0.045% (shrinking: frame-invariant);
         numerical floor γ(η̂=0) = 3.27e−3 → 1.96e−3 → 1.30e−3, ∝ dx^1.8, i.e. 52% of
         γ_visc at N=40 — the difference protocol is MANDATORY, not optional;
         a₁ is inert (a₁=6.25/25/100 at fixed a₂: f spread 0.006%, γ spread 0.22%).
-    STILL OPEN: the viscous FREQUENCY shift (+0.40/+0.28/+0.15% at N=24/32/40) is not
-        converged and must be quoted as an upper bound; realistic crusted EOS excite a
-        growing surface mode for N≥40 (surface index n>1.8 in ε∝(R−r)ⁿ; mechanism
-        open); σ_ko is a ±0.25% systematic on absolute frequencies; time-domain
-        resolution Δf=1/T is 4.4% of f at the production T — every sub-percent number
-        is a two-estimator parametric estimate, never a resolved line.
+        At σ_ko=0.005 the pencil γ_visc is 2.597e−3 (N=40) / 2.607e−3 (N=48) = 99.2% of
+        the NS dissipation integral 0.08746·η̂ = 2.6238e−3; the "96–97%" implied by the
+        σ_ko=0.01 Richardson sequence was itself KO-biased.
+    THE VISCOUS FREQUENCY SHIFT — CONVERGED (repro/bdnk3d_viscous_shift.jl, 33 runs).
+        The +0.40/+0.28/+0.15% (N=24/32/40) at σ_ko=0.01 was a KREISS–OLIGER ARTIFACT:
+        halving σ_ko removes ~0.35% of it at every N. What remains converges to the
+        damped-oscillator shift, which has no free parameter,
+                 Δf/f = −(γ_tot² − γ₀²)/(2ω²)
+        (σ_ko=0.005, η̂=0.03; measured mean of the two estimators / predicted):
+             N=24 +0.05% / −0.20%   N=32 −0.03% / −0.16%   N=40 −0.08% / −0.13%
+             N=48 −0.125% / −0.133%   — residual +0.25→+0.13→+0.05→+0.01%, ~h³.
+        η̂-scaling at N=40 is quadratic once the offset is removed; frame-reactive
+        corrections are O(τ²ω²) ≈ 3e−5. So Δf/f(η̂=0.03) = −0.125 ± 0.013%.
+        Protocol facts: hold the frame FIXED (η̂_frame) while sweeping η̂; the inviscid
+        control is unstable below σ_ko≈0.005 (N=24, 32) while viscous runs survive to
+        0.00125, so σ_ko=0.005 is the floor of the difference protocol; `visc_compact`
+        shifts f by +0.15% and cuts γ_visc 32% at N=24 — do not use it for the mode.
+    STILL OPEN: realistic crusted EOS excite a growing surface mode for N≥40 (surface
+        index n>1.8 in ε∝(R−r)ⁿ; mechanism open); σ_ko is a ±0.25% systematic on
+        absolute frequencies and THE dominant systematic of any viscous frequency shift;
+        time-domain resolution Δf=1/T is 4.4% of f at the production T — every
+        sub-percent number is a two-estimator parametric estimate, never a resolved line.
 =#
 module CowlingBDNK3D
 

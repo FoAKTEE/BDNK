@@ -321,9 +321,9 @@ last is pinned by the module's Π = c_s²𝒜 closure, not free). Damping by the
 |---|---|---|---|---|
 | frame spread of f | 0.052% | 0.048% | **0.046%** | vs 1.22% in the 1D polar operator; upper bound — df/f = 4.4% |
 | frame spread of γ_visc | 0.150% | 0.130% | **0.045%** | shrinks with N; 1D gave 14.28% (withdrawn — missing lapse) |
-| γ_visc, F₁ | 2.35482 | 2.44941 | 2.48251 | order ≈ 3; Richardson 2.51–2.54 = 96–97% of NS integral 2.6238 |
+| γ_visc, F₁ | 2.35482 | 2.44941 | 2.48251 | order ≈ 3 at σ_KO=0.01; at σ_KO=0.005 the pencil rate is 2.597 (N=40) / 2.607 (N=48) = **99.2% of the NS integral 2.6238** — the 96–97% was KO-biased |
 | numerical floor γ(η̂=0) | 3.2697 | 1.9551 | 1.2993 | ∝ dx^1.8; still 52% of γ_visc at N=40 — difference protocol mandatory |
-| viscous frequency shift | +0.40% | +0.28% | +0.15% | **not converged**; quote as < 0.2% |
+| viscous frequency shift | +0.40% | +0.28% | +0.15% | **KO artifact** — at σ_KO=0.005 it converges to the damped-oscillator value −(γ²−γ₀²)/2ω²: −0.125% measured vs −0.133% predicted at N=48 (`repro/bdnk3d_viscous_shift.jl`) |
 
 **Two physics results from this block.** (i) The stability bound τ_Q w₀ c_s² > (4/3)η reduces
 under the Clarisse mapping to the η-independent a₂c_s² > 4/3, and **its violation is sufficient-
