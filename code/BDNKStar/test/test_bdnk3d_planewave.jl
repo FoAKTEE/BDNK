@@ -43,7 +43,7 @@ const NPW = 32
 function _flat_box(; α::Float64=1.0)
     s = build_star3d(ShumPolytrope(100.0), 0.00128 + 100*0.00128^2; N=NPW, Lfac=1.2)
     s.α .= α; s.e2λ .= 1.0; s.sqrtγ .= 1.0; s.interior .= true
-    e = setup_bdnk3d(s; η̂=0.0, ζ̂=0.0, τ̂=TAU, σ_ko=0.0,
+    e = setup_bdnk3d(s; η̂=0.0, ζ̂=0.0, τ̂=TAU, σ_ko=0.0, cut=false,
                      den_frac=1e-14, excise_frac=0.0)
     e.Φp .= 0.0; e.qinv .= 0.0; e.gΓ1 .= 0.0; e.gΓ2 .= 0.0
     e.w0 .= W0; e.cs2 .= CS2; e.η0 .= ETA; e.ζ0 .= ZETA

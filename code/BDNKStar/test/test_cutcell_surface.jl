@@ -74,8 +74,9 @@ using BDNKStar.NonRadialModes: nonradial_cowling_spectrum
     end
     function run_evo(N, ηh, cut; T=500.0)
         s = build_star3d(eos, εc; N=N, Lfac=1.20)
-        kw = cut ? (; cut=true) : (;)
-        e = setup_evo3d(s; σ_ko=0.004, η̂=ηh, kw...)
+        # explicit on BOTH branches: cut=true is now the package default, so the masked
+        # (rigid-wall) comparison run must ask for cut=false by name
+        e = setup_evo3d(s; σ_ko=0.004, η̂=ηh, cut=cut)
         dt = 0.30*s.grid.dx
         st = EvolState(N); seed_l2!(st, e; A=1e-3)
         evolve3d!(st, e; dt=dt, nsteps=round(Int,T/dt), sample=6)

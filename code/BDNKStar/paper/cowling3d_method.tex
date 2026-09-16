@@ -42,7 +42,12 @@ true sphere $r=R$ by simply omitting the boundary face from the aperture-weighte
 divergence. Replacing the conventional stair-stepped mask, which imposes a rigid wall, by this
 treatment moves the $\ell=2$ $f$-mode of the benchmark $\Gamma=2$ polytrope from $-6.95\%$ to
 $-0.08\%$ of the frequency-domain shooting value at $N=48$ cells across the box, with $p_1$ to
-$-1\%$; three smooth barotropes agree to $\le0.08\%$. We extend the method to
+$-1\%$; three smooth barotropes agree to $\le0.08\%$. With the cut-cell geometry made exact
+(every quadrature split at its kinks and symmetrized over the axes), the engine seeds any real
+$Y_{\ell m}$ on the full cube: the $E_g$ partners $Y_{20}$ and $\mathrm{Re}\,Y_{22}$ give
+frequencies identical to fourteen significant figures, as the cubic group requires, while the
+$T_{2g}$ member $\mathrm{Re}\,Y_{21}$ sits $1.13\%$ lower at $N=24$---a direct measurement of the
+grid's cubic anisotropy. We extend the method to
 Bemfica--Disconzi--Noronha--Kovtun (\BDNK) first-order causal viscous hydrodynamics, keeping the
 frame relaxation times so that the linearized system remains hyperbolic, with the covariant
 expansion and the lapse in both recovery equations. In the three hydrodynamic frames of
@@ -245,14 +250,27 @@ disc of radius $a$ with an axis-aligned rectangle $[y_0,y_1]\times[z_0,z_1]$,
 \mathcal D &= \int_{y_-}^{y_+}\!\ell(y)\,dy,\qquad y_\mp = \max(y_0,-a),\ \min(y_1,a),\notag\\
 \ell(y) &= \big[\min(z_1,\zeta) - \max(z_0,-\zeta)\big]_+,\quad \zeta = \sqrt{a^2-y^2},
 \end{align}
-evaluated by 24-point Gauss--Legendre quadrature. A face at $x = x_f$ meets the sphere in a disc
-of radius $\sqrt{R^2-x_f^2}$, so $a_{x\pm} = \mathcal D(\sqrt{R^2-x_f^2};\ldots)/\Delta x^2$
-directly; the volume fraction is a second Gauss quadrature of $\mathcal D$ over $x$ across the
-cell, $\kappa = \Delta x^{-3}\int\mathcal D\,dx$. No interface-plane reconstruction is needed.
-Quadrature returns $1\pm\mathrm{few}\,\epsilon$ for a full cell, so all seven fields are clamped to
-$[0,1]$. Verified against the analytic sphere: $\sum\kappa\,\Delta x^3 = \tfrac43\pi R^3$ to
-$10^{-3}$ at $N=32$ and the closure condition---the face-aperture area vectors balancing the
-boundary face---reproduces $4\pi R^2$ at second order. Cells with $\kappa$ below a floor
+A face at $x = x_f$ meets the sphere in a disc of radius $\sqrt{R^2-x_f^2}$, so
+$a_{x\pm} = \mathcal D(\sqrt{R^2-x_f^2};\ldots)/\Delta x^2$ directly; the volume fraction is a
+second quadrature of $\mathcal D$ over $x$ across the cell, $\kappa = \Delta x^{-3}\int\mathcal D\,dx$.
+No interface-plane reconstruction is needed.
+
+The integrands are only piecewise smooth: $\ell(y)$ has kinks where the disc rim meets a
+rectangle edge, $\mathcal D(a(x))$ has kinks where the rim passes an edge or a corner, and both
+have a square-root singularity at the rim. A single Gauss rule therefore converges
+algebraically---24 points left $\sim10^{-5}$ errors---and because $\kappa$ integrates over $x$
+while the faces integrate over $y$ and $z$, that error was not symmetric under $x\leftrightarrow y$:
+the geometry broke the sphere's own octahedral symmetry at $10^{-5}$, which leaked into the
+$Y_{\ell m}$ moments (Sec.~\ref{sec:fullcube}). The implementation is therefore exact: the
+substitutions $y = a\sin\theta$ and $x = R\sin\varphi$ remove the rim singularities, every
+integral is split at its kink points ($\cos\theta = \{z_1,-z_0,z_0,-z_1\}/a$;
+$\cos\varphi = \{|y_{0,1}|,|z_{0,1}|,\text{corner distances}\}/R$), and 16-point Gauss on each
+smooth piece is exact to round-off; $\kappa$ is finally averaged over the six axis permutations,
+under which the true $\kappa$ is invariant. Verified against the analytic sphere:
+$\sum\kappa\,\Delta x^3 = \tfrac43\pi R^3$ to $2\times10^{-16}$, the $x$-face apertures equal the
+transposed $y$-face apertures to $0.0$, and the closure condition---the face-aperture area
+vectors balancing the boundary face---reproduces $4\pi R^2$ to $8\times10^{-4}$ at $N=24$ and
+$4.5\times10^{-4}$ at $N=32$ (second order). Cells with $\kappa$ below a floor
 $\kappa_{\min} = 0.5$ use $\kappa_{\min}$ in the denominator (a small-cell treatment).
 
 \subsection{Aperture-weighted divergences and the free surface}
@@ -283,12 +301,15 @@ $w_0 \ge f_{\rm exc}\max w_0$) merely moves the wall inward, giving $+2.6\%$ at 
 and $+8.2\%$ at $0.08$.
 
 \subsection{Seeding and diagnostics}
-The $\ell=2$, $m=0$ seed is $\de = A\,\varepsilon_0\,(r/R)\,(2z^2-x^2-y^2)/r^2$ with
-$A = 10^{-3}$ (\BDNK: a radial-velocity seed). The diagnostic is the $\sg$-weighted
-quadrupole $q_{20}(t) = \sum\de\,(2n_z^2-n_x^2-n_y^2)\,\sg\,\Delta x^3$ over interior cells, and
-the central $\de$. Because the code is linear, amplitude proportionality is exact to
-$10^{-14}$ (verified over $\times100$ and $\times3000$), which makes the linear engine the
-control for any nonlinear-engine claim (Sec.~\ref{sec:dg}).
+The seed is a density perturbation $\de = A\,\varepsilon_0\,(r/R)^\ell\,Y_{\ell m}(\hat n)$ with
+$Y_{\ell m}$ the real solid-harmonic angular factor ($\ell = 2$--$4$, all $m$; cosine type for
+$m\ge0$, sine type for $m<0$) and $A = 10^{-3}$; the radial factor makes $r^\ell Y_{\ell m}$ a
+polynomial, smooth at the centre. The legacy $\ell=2$, $m=0$ seed used $(r/R)^1$ and is retained.
+The diagnostics are the $\sg$-weighted moments $q_{\ell m}(t) = \sum\de\,Y_{\ell m}(\hat n)\,\sg\,
+\Delta x^3$ over interior cells, any set of which can be recorded in one run. Because the code is
+linear, amplitude proportionality is exact to $10^{-14}$ (verified over $\times100$ and
+$\times3000$), which makes the linear engine the control for any nonlinear-engine claim
+(Sec.~\ref{sec:dg}). The grid is the full cube, not an octant, so every $m$ is admissible.
 
 \subsection{Frequency extraction and its resolution}
 \label{sec:extract}
@@ -358,6 +379,24 @@ same table lists a nonlinear HRSC evolution on a fixed spacetime at $1.852\kHz$;
 gap is a finite-amplitude effect our linearized code must not reproduce, and the full-GR value
 for this star, $1.578$--$1.586\kHz$~\cite{KrugerKokkotas2020,Nouri2022}, is $19\%$ below
 Cowling and is not a valid comparison for a frozen-metric engine.
+
+\subsection{Non-axisymmetric seeds on the full cube}
+\label{sec:fullcube}
+Under the three reflections $x\to-x$, $y\to-y$, $z\to-z$ of the cubic group the $\ell=2$ quintet
+splits into the irreps $E_g = \{Y_{20},\mathrm{Re}\,Y_{22}\}$ (even under all three) and
+$T_{2g} = \{\mathrm{Re}\,Y_{21},\mathrm{Im}\,Y_{21},\mathrm{Im}\,Y_{22}\}$ (odd under two). Two
+statements follow for any discretization that respects the cube's symmetry: cross-moments between
+irreps vanish identically, and the two $E_g$ partners cannot be split at all. Both are exact
+tests of the discretization rather than of the physics, and both are met. Seeding $Y_{20}$,
+$\mathrm{Re}\,Y_{22}$ and $\mathrm{Re}\,Y_{21}$ in turn at $N=24$ and recording all three moments
+in each run, every cross-moment is below $10^{-8}$ of the seeded one, and the $E_g$ partners give
+$f = 1.884\,603\,501\,533\,21$ and $1.884\,603\,501\,533\,23\kHz$---identical to fourteen
+figures. With the previous 24-point Gauss geometry the same pair differed at $5\times10^{-7}$ and
+the cross-moments were $10^{-5}$: the asymmetric $\kappa$ was the entire effect. The $T_{2g}$
+member, by contrast, is genuinely split from $E_g$ by the grid: $f(\mathrm{Re}\,Y_{21}) =
+1.8633\kHz$, $-1.13\%$, at $\Delta x/R = 0.10$. This is the cubic anisotropy of the second-order
+stencil made visible as a mode splitting; on a spherical star it must vanish as $h^2$, and it is
+a cleaner measurement of it than the nonlinear engine could give (Sec.~\ref{sec:dg}).
 
 \subsection{Across equations of state}
 \label{sec:eos}
@@ -499,8 +538,9 @@ resolution. On a non-rotating star the $m$-degeneracy is exact, so the measured
 $|f(m{=}2)-f(m{=}0)|/f$ of $6.4/3.8/2.1/0.81\%$ at $K = 5/6/8/10$ elements per axis is a grid
 artifact falling as $h^{3.2}$, consistent with the scheme's $O(h^3)$; a single run seeded with
 $Y_{21}$, whose mirror extension populates both $E_g$ channels on one background, bounds the
-grid's genuine degeneracy violation at $9\times10^{-5}$. Two facts, however, make the linear
-cut-cell method the one to use for precision. The DG background is not static: the well-balanced
+grid's genuine degeneracy violation at $9\times10^{-5}$---a bound that the linear engine's
+fourteen-figure $E_g$ agreement (Sec.~\ref{sec:fullcube}) has since superseded by ten orders of
+magnitude. Two facts, however, make the linear cut-cell method the one to use for precision. The DG background is not static: the well-balanced
 subtraction is exact but the limiter is not, and $\rho_c$ erodes $-10\%$ by $4.6$ periods and
 $-31$ to $-43\%$ by $3000\,\Msun$, capping the usable record at $\Delta f/f = 21.6\%$ and putting
 its absolute $f$ at $-16\%$. And the octant's three separate reflections admit only the $E_g$
@@ -517,9 +557,13 @@ exact amplitude proportionality was the control that established this.
 %======================================================================
 
 \emph{Structural.} The metric is frozen: no gravitational-wave damping, no $w$-modes, no tidal
-deformability. The engine is linear and seeds $\ell=2$, $m=0$ only; extending the seed and the
-diagnostic to $\mathrm{Re}\,Y_{22}$ on the full cube is a small change and the natural next step,
-and would give an $m$-degeneracy test free of the DG engine's erosion.
+deformability. The engine is linear. Its public interface is now a single call,
+\texttt{bdnk3d\_qnm}, which builds the star and engine, installs a Clarisse frame from
+$(a_1,a_2)$ or a scalar $\hat\tau$, seeds any $(\ell,m)$, evolves, applies the gated
+two-estimator read-out and the $\hat\eta=0$ difference protocol, and returns the frequency,
+damping, floor, Rayleigh resolution, stability flag and bound-violation fraction together;
+\texttt{test/test\_bdnk3d\_qnm.jl} verifies each of these against the numbers in this paper at
+$N=24$.
 
 \emph{Numerical.} Time-domain resolution at affordable cost is $\Delta f/f = 4.4\%$; $\KO$ is a
 $\pm0.25\%$ systematic; the cut-cell path develops a late-time growing surface mode at

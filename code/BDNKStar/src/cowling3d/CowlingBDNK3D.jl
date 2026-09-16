@@ -32,9 +32,13 @@
     structure as CowlingEvolve3D (leading weak-field divergences).
 
     SCOPE: linearized BDNK; the frame is real (causal, hyperbolic) and the
-    dissipation is the full shear+bulk+heat first-order BDNK stress. Both former
-    "remaining refinements" (1),(2) are DONE — but a THIRD problem, (3), has since
-    been identified and is OPEN, so this engine is NOT finished:
+    dissipation is the full shear+bulk+heat first-order BDNK stress. The three
+    problems that once blocked this engine are all closed — (1),(2) by construction,
+    (3) by the stability analysis below — and the engine has a first-class QNM
+    API: `setup_bdnk3d(...; frame=(a₁,a₂))` installs a Clarisse hydrodynamic frame,
+    `seed_bdnk_ylm!` seeds any (ℓ,m) on the full cube, `evolve_bdnk3d_moments!`
+    records arbitrary moments, and `bdnk3d_qnm` runs the gated two-estimator
+    read-out with the η̂=0 difference protocol. See test/test_bdnk3d_qnm.jl.
     (1) THE FULL-STAR SURFACE TREATMENT — `cut=true` (cut cells, `setup_bdnk3d`)
         runs the FULL star r≤R with NO excision. See the status note there; the
         long list of failed regularizers that used to live in this file was, in
@@ -55,20 +59,48 @@
     damping ratio descends monotonically toward 100%, which argues the NEWTONIAN-form
     integral is the right reference (an earlier reading, that the ×0.95 relativistic
     correction put the truth near 108%, is not supported by the sequence).
-    (3) NOT DONE — THERE IS A STABILITY CEILING AT N≈64, so "converged" must NOT be
-        claimed: an earlier note read the N=32/44 agreement (102.5%→102.3%) as
-        convergence to 0.2%, but that was a window in which the unstable mode had not
-        yet emerged. See the `setup_bdnk3d` docstring for the full map and the
-        localisation of the mode.
+    (3) THE STABILITY CEILING — UNDERSTOOD (2026-09). The linear stability condition
+        of the 4×4 longitudinal sound sector this engine integrates is
+                       τ_Q w₀ c_s²  >  (4/3) η          (NOT τ_Q w₀ > η),
+        reproduced to ratio 1.0000 in 6/6 (c_s², η̂) combinations by a frozen-
+        coefficient flat-space analysis. Under the Clarisse map τ = a·η/w₀ it becomes
+        the η-INDEPENDENT a₂ c_s² > 4/3. Its violation is SUFFICIENT-NOT-NECESSARY on a
+        grid: the unstable band lies ABOVE a critical wavenumber k_c = C/η̂
+        (C = 0.4599/0.3019/0.1753 for F₁/F₂/F₃, minimum over the star at r/R≈0.994),
+        and the 2nd-order centred stencil caps k_eff = sin(kh)/h ≤ 1/h = N/23.0, so the
+        band is only RESOLVED for N > 353/232/135 (anchor star, η̂=0.03). That is why
+        N=32/44 looked clean and N≥64 did not with a constant τ̂, and why F₁ — which
+        violates the bound in 100% of cells — evolves stably for 46 periods through 12
+        decades of decay at N≤40. The criterion "unstable iff k_c < 1/h", moved to the
+        cheap η̂ axis at N=24, predicted 6/6 blow-ups in sign and 24–28% in growth rate,
+        and F₃ (fewer violating cells, k_c 2.6× smaller) destabilises FIRST. The
+        violation FRACTION does not order the instability; the critical WAVENUMBER does.
+        `τ_stab` remains available as a safety factor for constant-τ̂ runs.
+    THREE-FRAME RESULT (η̂=0.03, cut, σ_ko=0.01, N=24/32/40, difference protocol):
+        γ_visc(F₁) = 2.35482e−3 → 2.44941e−3 → 2.48251e−3 /M⊙, observed order ≈3,
+        Richardson 2.51–2.54e−3 = 96–97% of the NS dissipation integral 0.08746·η̂;
+        frame spread of γ_visc 0.150% → 0.130% → 0.045% (shrinking: frame-invariant);
+        numerical floor γ(η̂=0) = 3.27e−3 → 1.96e−3 → 1.30e−3, ∝ dx^1.8, i.e. 52% of
+        γ_visc at N=40 — the difference protocol is MANDATORY, not optional;
+        a₁ is inert (a₁=6.25/25/100 at fixed a₂: f spread 0.006%, γ spread 0.22%).
+    STILL OPEN: the viscous FREQUENCY shift (+0.40/+0.28/+0.15% at N=24/32/40) is not
+        converged and must be quoted as an upper bound; realistic crusted EOS excite a
+        growing surface mode for N≥40 (surface index n>1.8 in ε∝(R−r)ⁿ; mechanism
+        open); σ_ko is a ±0.25% systematic on absolute frequencies; time-domain
+        resolution Δf=1/T is 4.4% of f at the production T — every sub-percent number
+        is a two-estimator parametric estimate, never a resolved line.
 =#
 module CowlingBDNK3D
 
-using ..Background3D: Star3D
+using ..Background3D: Star3D, build_star3d
+using ..EquationOfState: BarotropicEOS
+using ..Units: Msun_to_km, kHz_to_km
 using ..CowlingEvolve3D: Scratch, _cutcell_geometry, l2_quadrupole, central_deps, periodogram,
-                         freq_kHz_cyclic, damping_rate
+                         freq_kHz_cyclic, damping_rate, ylm_real, ylm_moment, analyze_qnm
 
 export BDNKState, BDNK3D, setup_bdnk3d, seed_bdnk_l2!, evolve_bdnk3d!,
-       bdnk_causal_denominator
+       bdnk_causal_denominator, bdnk_bound_violation,
+       seed_bdnk_ylm!, evolve_bdnk3d_moments!, bdnk3d_qnm
 
 # 8-field state: conserved (δE, δS_i) + primitive (δε, δv^i)
 mutable struct BDNKState
@@ -286,11 +318,13 @@ frozen; at N=20,24,32,44 it is exactly 0 (Lfac 1.2 and 1.5 alike). The wider
 excise_frac=0.08 masked this by cutting those cells anyway.
 """
 function setup_bdnk3d(s::Star3D; η̂::Float64=0.0, ζ̂::Float64=0.0, τ̂::Float64=2.0,
+                      frame::Union{Nothing,Tuple{<:Real,<:Real}}=nothing,
+                      η̂_frame::Union{Nothing,Real}=nothing,
                       σ_ko::Float64=0.01, den_frac::Float64=0.004, den_rel::Float64=0.0,
-                      wcut_frac::Float64=1e-6, excise_frac::Float64=0.02,
+                      wcut_frac::Float64=1e-6, excise_frac::Float64=0.0,
                       hrsc_a::Float64=0.0, hyb_lo_frac::Float64=0.0, hyb_hi_frac::Float64=0.0,
                       κ_c::Float64=0.0, bc_frac::Float64=0.0, κ_bc::Float64=1.0,
-                      cut::Bool=false, κmin::Float64=0.5, visc_compact::Bool=false,
+                      cut::Bool=true, κmin::Float64=0.5, visc_compact::Bool=false,
                       τ_stab::Float64=0.0, cs2_floor::Float64=1e-8)
     w0 = s.ε0 .+ s.p0
     Φp = similar(w0); qinv = similar(w0); gΓ1 = similar(w0); gΓ2 = similar(w0)
@@ -344,15 +378,38 @@ function setup_bdnk3d(s::Star3D; η̂::Float64=0.0, ζ̂::Float64=0.0, τ̂::Flo
     #     dv --(-w0 theta)--> de --(stress)--> dS --(dS/den)--> dv
     # that the exact-Jacobian block ablation identifies as the instability:
     # zeroing ANY of those three blocks stabilises, all to the same -1.02e-2.
+    # ── HYDRODYNAMIC FRAME (Clarisse et al. arXiv:2510.16603 Table 1) ────────────────
+    # τ_ε = a₁ (1/T)(η/s), τ_Q = a₂ (1/T)(η/s); at zero chemical potential w = sT so
+    # (1/T)(η/s) = η/w and the stellar map is τ_ε = a₁η/w₀(x), τ_Q = a₂η/w₀(x), installed
+    # cell by cell. τ_P = c_s²τ_ε is NOT a free slot (see below). Because η₀ ∝ ε₀ the
+    # times are nearly uniform across the star: for the anchor star F₁ gives
+    # τ_ε ∈ [0.168, 0.188] M⊙, F₂ [0.337, 0.375], F₃ [0.674, 0.750].
+    # The frame must be built from a POSITIVE viscosity even for the η̂=0 control run of
+    # the difference protocol (γ_visc = γ(η̂) − γ(0) at identical frame) — hence η̂_frame.
+    # Under this map the module's stability bound τ_Q w₀ c_s² > (4/3)η becomes the
+    # η-independent a₂c_s² > 4/3; its violation is SUFFICIENT-NOT-NECESSARY (see header).
+    τQ = copy(τ)
+    if frame !== nothing
+        a1, a2 = float(frame[1]), float(frame[2])
+        ηf = float(η̂_frame === nothing ? η̂ : η̂_frame)
+        ηf > 0 || throw(ArgumentError("frame=(a₁,a₂) builds τ = a·η/w₀ and needs a positive " *
+                                      "viscosity: pass η̂_frame>0 for an η̂=0 control run"))
+        a2 > 1 || @warn "frame: a₂ ≤ 1 makes the recovery denominator τ_Q w₀−η = (a₂−1)η ≤ 0 (ill-posed)"
+        @inbounds for I in eachindex(τ)
+            ηI = ηf * s.ε0[I]; w = max(w0[I], eps(Float64))
+            τ[I]  = a1 * ηI / w
+            τQ[I] = a2 * ηI / w
+        end
+    end
     τP = s.cs2 .* τ
-    den_floor = den_frac * τ̂ * maximum(w0)    # regularize the surface recovery only
+    den_floor = den_frac * (frame === nothing ? τ̂ * maximum(w0) : maximum(τQ .* w0))
     wfloor = excise_frac * maximum(w0)         # excise the outermost unstable shell
     wmax = maximum(w0)
     N3 = s.grid.N
     z3()=zeros(N3,N3,N3)
     κc,axm,axp,aym,ayp,azm,azp = cut ? _cutcell_geometry(s) :
                                  (z3(),z3(),z3(),z3(),z3(),z3(),z3())
-    BDNK3D(s, w0, copy(s.cs2), η0, ζ0, τ, τP, copy(τ), Φp, qinv, gΓ1, gΓ2, wfloor, den_floor,
+    BDNK3D(s, w0, copy(s.cs2), η0, ζ0, τ, τP, τQ, Φp, qinv, gΓ1, gΓ2, wfloor, den_floor,
            den_rel, wcut_frac*maximum(w0),
            hrsc_a, hyb_lo_frac*wmax, hyb_hi_frac*wmax, κ_c,
            cut, κmin, κc, axm, axp, aym, ayp, azm, azp,
@@ -367,6 +424,29 @@ function bdnk_causal_denominator(e::BDNK3D)
         m = min(m, e.τQ[I]*e.w0[I] - e.η0[I])
     end
     m
+end
+
+"""
+    bdnk_bound_violation(e; η̂_ref=nothing) -> (cells, volume)
+
+Fraction of interior cells (and of proper volume √γ dV) violating the sound-sector
+stability bound τ_Q w₀ c_s² > (4/3) η. With `η̂_ref` the bound is evaluated at that
+reference viscosity instead of the engine's own η₀ (so an η̂=0 control engine can report
+the fraction of the frame it carries). Under the Clarisse map the bound is a₂c_s² > 4/3,
+independent of η. THIS FRACTION DOES NOT ORDER THE INSTABILITY: the unstable band lies
+above k_c = C/η̂ and is only resolved for N > 353/232/135 (F₁/F₂/F₃, anchor star); the
+critical wavenumber does.
+"""
+function bdnk_bound_violation(e::BDNK3D; η̂_ref::Union{Nothing,Real}=nothing)
+    nv = 0; ntot = 0; vv = 0.0; vtot = 0.0
+    @inbounds for I in eachindex(e.w0)
+        e.s.interior[I] || continue
+        η = η̂_ref === nothing ? e.η0[I] : float(η̂_ref)*e.s.ε0[I]
+        viol = e.τQ[I]*e.w0[I]*e.cs2[I] ≤ (4/3)*η
+        ntot += 1; vtot += e.s.sqrtγ[I]
+        if viol; nv += 1; vv += e.s.sqrtγ[I]; end
+    end
+    (cells = ntot > 0 ? nv/ntot : NaN, volume = vtot > 0 ? vv/vtot : NaN)
 end
 
 @inline _dx(A,i,j,k,h)=(A[i+1,j,k]-A[i-1,j,k])/(2h)
@@ -739,6 +819,122 @@ function evolve_bdnk3d!(st::BDNKState, e::BDNK3D; dt::Float64, nsteps::Int, samp
         _rk4!(st, e, dt, k1,k2,k3,k4, tmp, scr)
     end
     return ts, q2, qc
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════════
+#  GENERAL (ℓ,m) SEEDING, MOMENT RECORDING, AND THE QNM DRIVER
+# ═══════════════════════════════════════════════════════════════════════════════════
+@inline _active_b(e::BDNK3D, i, j, k) =
+    (e.cut ? (e.κ[i,j,k] > 0.0) : e.s.interior[i,j,k]) && e.w0[i,j,k] ≥ e.wfloor
+
+"""
+    seed_bdnk_ylm!(st, e; l=2, m=0, A=1e-3)
+
+Seed δε = δE = A ε₀ (r/R)^ℓ Y_ℓm(n̂) (at rest δE = δε + τ_ε w₀θ = δε since θ=0), all
+momenta and velocities zero. Any ℓ∈{2,3,4}, |m|≤ℓ; the full cube carries every m.
+"""
+function seed_bdnk_ylm!(st::BDNKState, e::BDNK3D; l::Int=2, m::Int=0, A::Float64=1e-3)
+    s = e.s; N = s.grid.N
+    @inbounds for k in 1:N, j in 1:N, i in 1:N
+        _active_b(e, i, j, k) || continue
+        r = s.r[i,j,k]
+        v = A * s.ε0[i,j,k] * (r/s.R)^l * ylm_real(l, m, s.nx[i,j,k], s.ny[i,j,k], s.nz[i,j,k])
+        st.δε[i,j,k] = v; st.δE[i,j,k] = v
+    end
+    for A_ in (st.δSx, st.δSy, st.δSz, st.δvx, st.δvy, st.δvz); fill!(A_, 0.0); end
+    return nothing
+end
+
+"""
+    evolve_bdnk3d_moments!(st, e; dt, nsteps, sample=1, moments=[(2,0)]) -> (ts, Q)
+
+As `evolve_bdnk3d!`, recording the listed (ℓ,m) moments of δε: `Q[n,j]` is
+`moments[j]` at sample `n`.
+"""
+function evolve_bdnk3d_moments!(st::BDNKState, e::BDNK3D; dt::Float64, nsteps::Int, sample::Int=1,
+                                moments::Vector{Tuple{Int,Int}}=[(2,0)])
+    N = e.s.grid.N
+    k1=BDNKState(N); k2=BDNKState(N); k3=BDNKState(N); k4=BDNKState(N); tmp=BDNKState(N)
+    scr = Scratch(N)
+    ts = Float64[]; rows = Vector{Vector{Float64}}()
+    for n in 0:nsteps
+        if n % sample == 0
+            push!(ts, n*dt)
+            push!(rows, [ylm_moment(st.δε, e.s; l=l, m=m) for (l,m) in moments])
+        end
+        n == nsteps && break
+        _rk4!(st, e, dt, k1,k2,k3,k4, tmp, scr)
+    end
+    Q = Matrix{Float64}(undef, length(ts), length(moments))
+    for (n, r) in enumerate(rows); Q[n, :] .= r; end
+    return ts, Q
+end
+
+"""
+    bdnk3d_qnm(eos, εc; N=32, l=2, m=0, η̂=0.0, ζ̂=0.0, τ̂=2.0, frame=nothing, η̂_frame=nothing,
+               σ_ko=0.01, cut=true, κmin=0.5, A=1e-3, dt_fac=0.20, Lfac=1.2,
+               f_ref_kHz=1.883, nperiods=12, samples_per_period=50,
+               Lunit_km=Msun_to_km, control=(η̂>0), kw...) -> NamedTuple
+
+The 3+1D BDNK quasi-normal-mode driver: build the star and engine, seed (ℓ,m), evolve for
+`nperiods` of the reference frequency, and read the mode out with the gated two-estimator
+analysis (`analyze_qnm`). With `control=true` the run is repeated at η̂=0 on the SAME grid
+and frame and the viscous damping is the DIFFERENCE, γ_visc = γ(η̂) − γ(0): the numerical
+floor γ(0) (Kreiss–Oliger + surface, ≈1.3e−3 M⊙⁻¹ at N=40) is 52% of γ_visc there, so
+quoting γ(η̂) raw overstates the damping by 1.5×. Returns
+  `main`, `ctrl`     — `analyze_qnm` results (ctrl = nothing without control)
+  `f_kHz`, `γ`, `γ0`, `γ_visc`, `Q_visc` (= ω/2γ_visc), `τ_visc_ms`
+  `df_kHz`           — Rayleigh resolution 1/T: nothing finer is RESOLVED
+  `stable`           — both records finite and decaying
+  `bound_violation`  — fraction of cells/volume violating τ_Q w₀ c_s² > (4/3)η at η̂
+  `causal_den_min`   — min(τ_Q w₀ − η) over the star (must be > 0)
+  `M`, `R_km`, `N`, `T`, `dt`
+`frame=(a₁,a₂)` selects a Clarisse frame (τ built from η̂_frame, default η̂); otherwise the
+scalar `τ̂` is used. `f_ref_kHz` only sets the record length and the search band — use
+the 1D shooting value when available. Cost ∝ N⁴; N=24 with 12 periods is ~1 min,
+N=48 with 23 periods ~15 min single-threaded.
+"""
+function bdnk3d_qnm(eos::BarotropicEOS, εc::Real; N::Int=32, l::Int=2, m::Int=0,
+                    η̂::Real=0.0, ζ̂::Real=0.0, τ̂::Real=2.0,
+                    frame::Union{Nothing,Tuple{<:Real,<:Real}}=nothing,
+                    η̂_frame::Union{Nothing,Real}=nothing,
+                    σ_ko::Real=0.01, cut::Bool=true, κmin::Real=0.5, A::Real=1e-3,
+                    dt_fac::Real=0.20, Lfac::Real=1.2,
+                    f_ref_kHz::Real=1.883, nperiods::Real=12, samples_per_period::Int=50,
+                    Lunit_km::Real=Msun_to_km, control::Bool=(η̂ > 0), kw...)
+    s = build_star3d(eos, float(εc); N=N, Lfac=float(Lfac))
+    ν_ref = float(f_ref_kHz) * kHz_to_km * Lunit_km          # cyclic, code units
+    P = 1/ν_ref; T = nperiods*P
+    dt = dt_fac*s.grid.dx; nsteps = ceil(Int, T/dt)
+    sample = max(1, floor(Int, P/(samples_per_period*dt)))
+    ηf = η̂_frame === nothing ? (η̂ > 0 ? η̂ : nothing) : η̂_frame
+    (frame !== nothing && ηf === nothing) &&
+        throw(ArgumentError("bdnk3d_qnm: frame=(a₁,a₂) with η̂=0 needs η̂_frame>0"))
+    # NB: distinct names inside the closure. A Julia closure that assigns a name which is
+    # ALSO assigned in the enclosing function writes to the enclosing variable — the
+    # control run would silently replace the viscous engine (caught: it reported a 0%
+    # bound violation for F₁, which violates the bound in 100% of cells).
+    function run(ηh)
+        eng = setup_bdnk3d(s; η̂=float(ηh), ζ̂=float(ζ̂), τ̂=float(τ̂), frame=frame, η̂_frame=ηf,
+                           σ_ko=float(σ_ko), cut=cut, κmin=float(κmin), kw...)
+        st = BDNKState(N); seed_bdnk_ylm!(st, eng; l=l, m=m, A=float(A))
+        tt, QQ = evolve_bdnk3d_moments!(st, eng; dt=dt, nsteps=nsteps, sample=sample, moments=[(l,m)])
+        (analyze_qnm(tt, QQ[:,1]; ν_ref=ν_ref, Lunit_km=Lunit_km), eng, tt, QQ[:,1])
+    end
+    main, e, ts, q = run(η̂)
+    ctrl = control ? run(0.0)[1] : nothing
+    γ0 = ctrl === nothing ? NaN : ctrl.γ
+    γv = ctrl === nothing ? NaN : main.γ - γ0
+    ω  = 2π * main.f_kHz * kHz_to_km * Lunit_km                # geometric angular frequency
+    # damping time in ms: τ[code] = 1/γ ; code length unit L_unit km ⇒ seconds = L/c
+    τ_ms = isfinite(γv) && γv > 0 ? (1/γv) * Lunit_km / 299792.458 * 1e3 : NaN
+    (main = main, ctrl = ctrl,
+     f_kHz = main.f_kHz, f_pencil_kHz = main.f_pencil_kHz, γ = main.γ, γ0 = γ0, γ_visc = γv,
+     Q_visc = isfinite(γv) && γv > 0 ? ω/(2γv) : NaN, τ_visc_ms = τ_ms,
+     df_kHz = main.df_kHz, nperiods = main.nperiods,
+     stable = main.stable && (ctrl === nothing || ctrl.stable),
+     bound_violation = bdnk_bound_violation(e), causal_den_min = bdnk_causal_denominator(e),
+     M = s.M, R_km = s.R * Lunit_km, N = N, T = T, dt = dt, ts = ts, q = q)
 end
 
 end # module CowlingBDNK3D

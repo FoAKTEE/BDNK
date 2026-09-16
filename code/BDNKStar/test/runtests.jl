@@ -25,6 +25,7 @@ using Test
     include("test_bdnk_viscous.jl")
     include("test_bdnk_fullframe.jl")
     include("test_cutcell_surface.jl")
+    include("test_bdnk3d_qnm.jl")
     include("test_spherical.jl")
     include("test_noise_excitation.jl")
     include("test_polar_viscous.jl")

@@ -178,10 +178,13 @@ export gsf_roots_NS, gsf_roots_BDNK, gsf_max_growth_NS, gsf_max_growth_BDNK,
 # 3+1D Cowling evolution (STAGE 3 Phase 2)
 export CartesianGrid, Star3D, build_star3d
 export EvolState, Evo3D, setup_evo3d, seed_l2!, evolve3d!, l2_quadrupole,
-       periodogram, freq_kHz_cyclic, damping_rate
+       periodogram, freq_kHz_cyclic, damping_rate,
+       ylm_real, seed_ylm!, ylm_moment, evolve3d_moments!,
+       spectral_peak, pencil_modes, envelope_ratio, analyze_qnm
 # Full-frame (causal/hyperbolic) BDNK 3+1D Cowling (STAGE 3, frame recovery)
 export BDNKState, BDNK3D, setup_bdnk3d, seed_bdnk_l2!, evolve_bdnk3d!,
-       bdnk_causal_denominator
+       bdnk_causal_denominator, bdnk_bound_violation,
+       seed_bdnk_ylm!, evolve_bdnk3d_moments!, bdnk3d_qnm
 # Boundary-conforming (r,θ) spherical BDNK (STAGE 3, surface rewrite)
 export SphGrid, SphStar, build_sphstar
 export SphState, SphEvo, setup_sphevo, seed_sph_l2!, evolve_sph!, l2_quad_sph
