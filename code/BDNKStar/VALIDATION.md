@@ -411,12 +411,23 @@ been rerun.
    measurement without the η=0 difference protocol.
 7. Julia: `2f1` parses as the `Float32` literal `20.0`, not `2*f1`. A harmonic search silently
    sampled 15–30 kHz instead of 2f and returned a fake null until caught by synthetic injection.
-8. **`DGCart3D`'s momentum and energy sources are incomplete** (found while deriving `DGBall3D`):
-   it applies only −α(ε+p)W²Φ′ n_i, without the √γ factor, without the metric-derivative term
-   (α/2)√γ T^{ab}∂_iγ_ab and without the +√γ p αΦ′ piece of −√γ E ∂_iα. Its static residual is
-   therefore not TOV (hidden by the well-balanced subtraction) and its dynamics carry an
-   O(p/ε, λ′) inconsistency — a plausible contributor to its −2 to −10% f-mode (§7.8). Still
-   present in `src/`; `DGBall3D` has the complete sources.
+8. **`DGCart3D`'s momentum and energy sources were incomplete — FIXED 2026-09-17** (found while
+   deriving `DGBall3D`): it applied only −α(ε+p)W²Φ′ n_i, without the √γ factor, without the
+   metric-derivative term (α/2)√γ T^{ab}∂_iγ_ab and without the +√γ p αΦ′ piece of −√γ E ∂_iα, so
+   its static residual was not TOV (hidden by the well-balanced subtraction). With the complete
+   sources the interior static residual is 1% of gravity (the p=2 derivative error; the analytic
+   balance of the coefficient arrays closes to 10⁻¹⁶); the old sources were off by 21% at the
+   centre. Effect on the ℓ=2 f-mode (same runs as §7.8, `repro/data/dgcart3d_fmode_scan_srcfix.csv`):
+
+   | K | A | T | periodogram / pencil, old sources | periodogram / pencil, fixed sources |
+   |---|---|---|---|---|
+   | 6 | 10⁻² | 600 | −3.6% / −6.7% | −0.55% / −0.04% |
+   | 8 | 10⁻² | 600 | −3.9% / −1.7% | −1.1% / −1.2% |
+   | 10 | 10⁻² | 600 | −10.1% / −10.3% | −3.0% / −3.5% |
+   | 8 | 10⁻² | 1300 | −4.5% / −6.0% | −2.9% / −1.3% |
+
+   Two thirds of the "staircase systematic" of §7.8 was the wrong source term. What remains
+   (−0.5 to −3.5%, still non-monotone in K) is the staircase surface. test_dg3d.jl: 25/25.
 
 ### 7.8 `DGCart3D` limiter fix — equilibrium-preserving Zhang–Shu, deviation-form Rusanov (2026-09-17)
 
@@ -487,6 +498,8 @@ size and no monotone trend in K (K=10 is the lowest). That residual is the stair
 surface of a nodal DG star at 14–23 nodes across R — the same systematic the linear engine shows
 with a masked (rigid-wall) surface, −7% (§7.7 item 1) — and not the limiter, whose background is
 now static. It is not a precision measurement of anything; the linear cut-cell engine is.
+**Addendum (same day):** two thirds of that offset was the incomplete source term of §7.7 item 8;
+with the complete sources the same scan gives −0.5 / −1.1 / −3.0% at K=6/8/10 (table there).
 
 
 
