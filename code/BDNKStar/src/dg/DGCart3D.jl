@@ -108,6 +108,7 @@ struct DGCart3DEngine
     x::Array{Float64,6}; y::Array{Float64,6}; z::Array{Float64,6}; r::Array{Float64,6}
     α::Array{Float64,6}; elam::Array{Float64,6}; sqrtγ::Array{Float64,6}
     nx::Array{Float64,6}; ny::Array{Float64,6}; nz::Array{Float64,6}; Φp::Array{Float64,6}
+    λp::Array{Float64,6}; gor::Array{Float64,6}        # λ'(r), (e^λ−1)/r : metric-derivative source coefficients
     interior::BitArray{6}
     Seq_D::Array{Float64,6}; Seq_Sx::Array{Float64,6}; Seq_Sy::Array{Float64,6}
     Seq_Sz::Array{Float64,6}; Seq_τ::Array{Float64,6}
@@ -194,11 +195,12 @@ function setup_dgcart3d(eos::BarotropicEOS, εc::Float64; Kx::Int=8, Ky::Int=8, 
     m_of(r)= r≤R ? _lininterp(rt,mt,r) : M
     ν_of(r)= r≤R ? _lininterp(rt,νt,r) : log(1-2M/r)
     p_of(r)= r≤R ? max(_lininterp(rt,pt,r),0.0) : 0.0
+    et=star.ε; e_of(r)= r≤R ? max(_lininterp(rt,et,r),0.0) : 0.0
 
     dims=(N,N,N,Kx,Ky,Kz)
     x=zeros(dims); y=zeros(dims); z=zeros(dims); r=zeros(dims)
     α=zeros(dims); elam=zeros(dims); sqrtγ=zeros(dims)
-    nx=zeros(dims); ny=zeros(dims); nz=zeros(dims); Φp=zeros(dims)
+    nx=zeros(dims); ny=zeros(dims); nz=zeros(dims); Φp=zeros(dims); λp=zeros(dims); gor=zeros(dims)
     interior=falses(dims)
     @inbounds Threads.@threads for kz in 1:Kz
         for ky in 1:Ky, kx in 1:Kx
@@ -214,6 +216,7 @@ function setup_dgcart3d(eos::BarotropicEOS, εc::Float64; Kx::Int=8, Ky::Int=8, 
                 α[a,b,c,kx,ky,kz]=exp(0.5*ν_of(rr)); elam[a,b,c,kx,ky,kz]=1/fm; sqrtγ[a,b,c,kx,ky,kz]=1/sqrt(fm)
                 nx[a,b,c,kx,ky,kz]=X/rr; ny[a,b,c,kx,ky,kz]=Y/rr; nz[a,b,c,kx,ky,kz]=Z/rr
                 den=rr*(rr-2m); Φp[a,b,c,kx,ky,kz]= den>0 ? (m+4π*rr^3*p_of(rr))/den : 0.0
+                mp=4π*rr^2*e_of(rr); λp[a,b,c,kx,ky,kz]=(2mp/rr-2m/rr^2)/fm; gor[a,b,c,kx,ky,kz]=(elam[a,b,c,kx,ky,kz]-1)/rr
                 interior[a,b,c,kx,ky,kz]= rr<R
             end
         end
@@ -236,7 +239,7 @@ function setup_dgcart3d(eos::BarotropicEOS, εc::Float64; Kx::Int=8, Ky::Int=8, 
             st.Sz[a,b,c,kx,ky,kz]=Sz; st.τ[a,b,c,kx,ky,kz]=τ
         end
     end
-    eng=DGCart3DEngine(bs,Kx,Ky,Kz,Δ,J,eos,atm,R,M,cfl,M_tvb,x,y,z,r,α,elam,sqrtγ,nx,ny,nz,Φp,interior,
+    eng=DGCart3DEngine(bs,Kx,Ky,Kz,Δ,J,eos,atm,R,M,cfl,M_tvb,x,y,z,r,α,elam,sqrtγ,nx,ny,nz,Φp,λp,gor,interior,
                        zeros(dims),zeros(dims),zeros(dims),zeros(dims),zeros(dims),
                        true, copy(st.D),copy(st.Sx),copy(st.Sy),copy(st.Sz),copy(st.τ), zeros(dims),zeros(dims))
     _update_prims!(st,eng)
@@ -471,20 +474,30 @@ function _raw_rhs!(rD,rSx,rSy,rSz,rτ, st::DGCart3DState, eng::DGCart3DEngine)
         end
     end
 
-    # geometric/gravity source (Cartesian projection of the spherical source)
+    # SOURCES: the complete Valencia sources on the Cowling metric γ_ab = δ_ab + (e^λ−1) n_a n_b
+    #   s_{S_i} = √γ [ (α/2) T^{ab}∂_iγ_ab − (ρhW² − p) α Φ' n_i ],   s_τ = −√γ ρhW² (v·n) α Φ'
+    #   T^{ab}∂_iγ_ab = ρhW² [ e^λ λ' (v·n)² n_i + (2(e^λ−1)/r)((v·n) v^i − (v·n)² n_i) ] + p λ' n_i
+    # (v·n with the CONTRAVARIANT velocity). These reduce to TOV for the static star. Until
+    # 2026-09-17 this block was −α(ε+p)W²Φ′ n_i alone: no √γ, no metric-derivative term, no +pαΦ′
+    # (VALIDATION.md §7.7 item 8); the well-balanced subtraction hid the wrong static balance.
     @inbounds Threads.@threads for kz in 1:Kz
         for ky in 1:Ky, kx in 1:Kx, c in 1:N, b in 1:N, a in 1:N
-            α=eng.α[a,b,c,kx,ky,kz]; Φp=eng.Φp[a,b,c,kx,ky,kz]
+            α=eng.α[a,b,c,kx,ky,kz]; Φp=eng.Φp[a,b,c,kx,ky,kz]; λp=eng.λp[a,b,c,kx,ky,kz]; gor=eng.gor[a,b,c,kx,ky,kz]
+            sg=eng.sqrtγ[a,b,c,kx,ky,kz]
             nxv=eng.nx[a,b,c,kx,ky,kz]; nyv=eng.ny[a,b,c,kx,ky,kz]; nzv=eng.nz[a,b,c,kx,ky,kz]
             ρ=st.ρ[a,b,c,kx,ky,kz]; p=st.p[a,b,c,kx,ky,kz]; ε=st.ε[a,b,c,kx,ky,kz]
             vux=st.vx[a,b,c,kx,ky,kz]; vuy=st.vy[a,b,c,kx,ky,kz]; vuz=st.vz[a,b,c,kx,ky,kz]
             el=eng.elam[a,b,c,kx,ky,kz]; q=(el-1)
             nv=nxv*vux+nyv*vuy+nzv*vuz; vlx=vux+q*nxv*nv; vly=vuy+q*nyv*nv; vlz=vuz+q*nzv*nv
-            v2=clamp(vux*vlx+vuy*vly+vuz*vlz,0.0,1.0-1e-12); W=1.0/sqrt(1.0-v2)
-            vn=nxv*vlx+nyv*vly+nzv*vlz
-            gforce=-α*(ε+p)*W^2*Φp
-            rSx[a,b,c,kx,ky,kz]+=gforce*nxv; rSy[a,b,c,kx,ky,kz]+=gforce*nyv; rSz[a,b,c,kx,ky,kz]+=gforce*nzv
-            rτ[a,b,c,kx,ky,kz]+= -α*(ε+p)*W^2*vn*Φp
+            v2=clamp(vux*vlx+vuy*vly+vuz*vlz,0.0,1.0-1e-12); W2=1.0/(1.0-v2)
+            f=(ε+p)*W2                                          # ρhW²  (ε is the total energy density)
+            c1=f*el*λp*nv^2 + p*λp - 2*f*gor*nv^2                # coefficient of n_i in T^{ab}∂_iγ_ab
+            c2=2*f*gor*nv                                        # coefficient of v^i
+            g=(f-p)*α*Φp                                         # −√γ E ∂_iα with E = ρhW² − p
+            rSx[a,b,c,kx,ky,kz]+=sg*(0.5*α*(c1*nxv+c2*vux) - g*nxv)
+            rSy[a,b,c,kx,ky,kz]+=sg*(0.5*α*(c1*nyv+c2*vuy) - g*nyv)
+            rSz[a,b,c,kx,ky,kz]+=sg*(0.5*α*(c1*nzv+c2*vuz) - g*nzv)
+            rτ[a,b,c,kx,ky,kz]+= -sg*f*nv*α*Φp
         end
     end
     return nothing
@@ -907,7 +920,7 @@ function dgcart3d_shocktube_diagonal!(eos::BarotropicEOS; K::Int=24, p::Int=2,
     ε_atm=energy_from_pressure(eos,p_atm)
     atm=AtmospherePars(ρ_atm,p_atm,ε_atm,5*ρ_atm,0.999)
     eng=DGCart3DEngine(bs,K,K,K,Δ,J,eos,atm,1e30,0.0,cfl,0.0,
-        x,y,z,r,α,elam,sqrtγ,nx,ny,nz,Φp,interior,
+        x,y,z,r,α,elam,sqrtγ,nx,ny,nz,Φp,zeros(dims),zeros(dims),interior,
         zeros(dims),zeros(dims),zeros(dims),zeros(dims),zeros(dims),
         false, zeros(dims),zeros(dims),zeros(dims),zeros(dims),zeros(dims), zeros(dims),zeros(dims))
     st=DGCart3DState((zeros(dims) for _ in 1:11)...)
