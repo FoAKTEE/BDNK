@@ -4,6 +4,7 @@
 \usepackage{hyperref}
 \hypersetup{colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black}
 \usepackage{bm}
+\usepackage{graphicx}
 
 \newcommand{\Msun}{M_\odot}
 \newcommand{\kHz}{\,\mathrm{kHz}}
@@ -336,6 +337,18 @@ identical grid and frame times, once at $\hat\eta$ and once at $\hat\eta=0$, and
 $\gamma_{\rm visc} = \gamma(\hat\eta)-\gamma(0)$. The numerical floor $\gamma(0)$ from
 Kreiss--Oliger and the surface is $1.30\times10^{-3}\,\Msun^{-1}$ at $N=40$---$52\%$ of the
 viscous rate---so quoting $\gamma(\hat\eta)$ raw would overstate the damping by $1.5\times$.
+Figure~\ref{fig:ts} shows what the engine produces: the ideal run itself decays, at the numerical
+floor, and the viscous run decays faster; the difference is the physics.
+
+\begin{figure}[tb]
+\includegraphics[width=\columnwidth]{figs/fig1_timeseries}
+\caption{The $\ell=2$ quadrupole moment $q_{20}(t)$ of the benchmark star at $N=24$, $\KO=0.005$,
+for the ideal engine and for \BDNK\ in frame $F_1$ at $\hat\eta = 0.03$, each normalised to its
+seed. Dashed: exponential fits to the positive peaks. The ideal run decays at the numerical floor
+$\gamma_0$ (Kreiss--Oliger dissipation and the surface); the viscous damping is the difference.
+The first half-period is the seed relaxing onto the mode.}
+\label{fig:ts}
+\end{figure}
 
 %======================================================================
 \section{Validation of the ideal engine}
@@ -343,10 +356,14 @@ viscous rate---so quoting $\gamma(\hat\eta)$ raw would overstate the damping by 
 %======================================================================
 
 \subsection{The benchmark star}
-Table~\ref{tab:anchor} is the central validation. With cut cells at $N=48$ the $f$-mode is
-$-0.083\%$ from the shooting value and $p_1$ is $-0.98\%$; the masked engine at the same
-$\KO$ is $-6.95\%$ at both $N=32$ and $N=40$, i.e.\ the error does not converge in this range
-and would be reported as a healthy result by any pipeline that did not compare to a reference.
+Table~\ref{tab:anchor} and Fig.~\ref{fig:conv} are the central validation. With cut cells at
+$N=48$ the $f$-mode is $-0.083\%$ from the shooting value and $p_1$ is $-0.98\%$; the masked
+engine at $\KO = 0.004$ is $-6.93\%$ and $-6.95\%$ at $N=32$ and $N=40$, i.e.\ the error does not
+converge in this range and would be reported as a healthy result by any pipeline that did not
+compare to a reference. Raising the mask's dissipation to $\KO = 0.01$ does not repair it but
+hides it: the peak becomes ill-defined, the two estimators disagreeing by $1$--$2\%$
+(Fig.~\ref{fig:conv}, open symbols), so the masked engine's answer depends on $\KO$ at the
+seven-percent level while the cut-cell answer moves by $\pm0.25\%$.
 The cut-cell sequence $N = 24/32/40/48$ is non-monotone ($+0.005/-0.39/-0.31/-0.08\%$), so no
 convergence order can be fitted, Richardson extrapolation on (40,48) makes the answer
 \emph{worse} ($+0.44\%$), and the honest error bar is the $N$-spread of $\pm0.4\%$ rather than
@@ -354,6 +371,17 @@ the $N=48$ residual. The Kreiss--Oliger coefficient is a systematic of the same 
 $\KO = 0.02$ gives $+0.42\%$ at $N=48$, bracketing the reference from above, and any cut-cell
 frequency must state $\KO$; on the masked path it is worth more than seven points. $p_2$
 ($5.771$ vs $6.031\kHz$) is not resolved at these record lengths.
+
+\begin{figure}[tb]
+\includegraphics[width=\columnwidth]{figs/fig2_convergence}
+\caption{$\ell=2$ $f$-mode of the benchmark star against the shooting solver ($1.88291\kHz$),
+as a function of resolution. Filled circles: cut cells, $\KO=0.01$. Filled squares: binary mask
+(rigid wall), $\KO=0.004$. Open squares: the mask at $\KO=0.01$, where the peak is ill-defined.
+Symbols are the mean of the periodogram and matrix-pencil estimates; error bars are half their
+difference. Cut-cell and $\KO=0.01$ mask records are nine periods; the $\KO=0.004$ mask records
+are 23 periods.}
+\label{fig:conv}
+\end{figure}
 
 \begin{table}[tb]
 \footnotesize
@@ -399,11 +427,31 @@ figures. With the previous 24-point Gauss geometry the same pair differed at $5\
 the cross-moments were $10^{-5}$: the asymmetric $\kappa$ was the entire effect. The $T_{2g}$
 member, by contrast, is genuinely split from $E_g$ by the grid: $f(\mathrm{Re}\,Y_{21}) =
 1.8633\kHz$, $-1.13\%$, at $\Delta x/R = 0.10$. This is the cubic anisotropy of the second-order
-stencil made visible as a mode splitting; on a spherical star it must vanish as $h^2$, and it is
-a cleaner measurement of it than the nonlinear engine could give (Sec.~\ref{sec:dg}).
+stencil made visible as a mode splitting. It decreases with resolution---$1.12$, $0.40$ and
+$0.32\%$ at $N = 24, 32, 40$ (Fig.~\ref{fig:msplit})---consistent with $O(h^2)$ within the
+$\pm0.1\%$ spread of the two estimators on nine-period records, while the $E_g$ splitting stays
+below $10^{-12}\%$ at every $N$. It is a cleaner measurement of the grid's anisotropy than the
+nonlinear engine could give (Sec.~\ref{sec:dg}).
+
+\begin{figure}[tb]
+\includegraphics[width=\columnwidth]{figs/fig3_msplit}
+\caption{Splitting of the $\ell=2$ $f$-mode by the Cartesian grid. The $T_{2g}$ member
+$\mathrm{Re}\,Y_{21}$ is split from the $E_g$ pair by the cubic anisotropy of the stencil; the
+dotted line is $h^2$ scaling from $N=24$. The $E_g$ partners $Y_{20}$ and $\mathrm{Re}\,Y_{22}$ are
+degenerate to round-off at every resolution.}
+\label{fig:msplit}
+\end{figure}
 
 \subsection{Across equations of state}
 \label{sec:eos}
+\begin{figure}[tb]
+\includegraphics[width=\columnwidth]{figs/fig4_surface_index}
+\caption{Growth or decay of the $f$-mode record over 23 periods at $N=48$, against the surface
+index $n$ of each equation of state ($\varepsilon\propto(R-r)^n$ near $r=R$). Green: the three
+analytic polytropes, decaying. Red: the four crusted Read~\emph{et al.} EOS, growing by
+$10^{11}$--$10^{15}$. The dashed line is neutral stability.}
+\label{fig:surface}
+\end{figure}
 The background builder accepts any barotrope, and the Read~\emph{et al.} piecewise polytropes
 SLy, APR4, H4 and MS1~\cite{Read2009} reproduce their 1D masses and radii to six figures on the
 grid. Table~\ref{tab:eos} shows the outcome. The three smooth analytic barotropes converge to
@@ -440,7 +488,8 @@ What discriminates the two classes is neither compactness, stiffness nor tabulat
 steepness of the surface. Writing $\varepsilon\propto(R-r)^n$ between $0.99R$ and $0.999R$, the
 effective index is $n = 0.50, 0.67, 1.005$ for $\Gamma = 3, 2.5, 2$ (stable) and
 $1.84, 1.87, 1.95, 1.95$ for MS1, H4, APR4, SLy (unstable), and the ordering in $n$ is the ordering
-in the $N=48$ end/start ratio, monotone over nineteen decades with no exception. The SLy crust's
+in the $N=48$ end/start ratio, monotone over nineteen decades with no exception
+(Fig.~\ref{fig:surface}). The SLy crust's
 outermost segment has $\Gamma\simeq1.58$, hence $n = 1/(\Gamma-1)\simeq1.7$--$2.0$, and
 $\varepsilon_0+p_0$ falls by a factor $\sim500$ across one grid cell exactly where the apertures
 are partial, against $0.44$--$0.70$ for the analytic EOS. This is a correlation across seven EOS,
@@ -493,14 +542,23 @@ discretization residue. The rate itself converges at observed order $\approx3$
 Richardson extrapolation gives $2.51$--$2.54\times10^{-3}\,\Msun^{-1}$. That sequence is at
 $\KO = 0.01$; at $\KO = 0.005$ the matrix-pencil rate is $2.597\times10^{-3}$ at $N=40$ and
 $2.607\times10^{-3}$ at $N=48$---$99.2\%$ of the Newtonian-form Navier--Stokes dissipation
-integral $0.08746\,\hat\eta = 2.6238\times10^{-3}$ for this star. The apparent few-percent
-``causal suppression'' of the $\KO=0.01$ sequence was Kreiss--Oliger bias. The frame spread of
+integral $0.08746\,\hat\eta = 2.6238\times10^{-3}$ for this star (Fig.~\ref{fig:damping}). The
+apparent few-percent ``causal suppression'' of the $\KO=0.01$ sequence was Kreiss--Oliger bias. The frame spread of
 the frequency, $<0.05\%$, is an upper bound only ($\Delta f/f = 4.4\%$), but is $25\times$ smaller
 than the $1.22\%$ of the 1D polar operator; that operator's own damping rates were withheld
 after its velocity recovery was found to omit the lapse, and the 3D engine---which carries the
 lapse in Eq.~\eqref{eq:recS}---independently confirms the retraction. The viscous frequency
 shift relative to the inviscid control is the one quantity that required a dedicated
 convergence study (Sec.~\ref{sec:shift}).
+
+\begin{figure}[tb]
+\includegraphics[width=\columnwidth]{figs/fig5_damping}
+\caption{Viscous damping rate of the $f$-mode at $\hat\eta=0.03$ from the difference protocol,
+against resolution. The three Clarisse frames at $\KO=0.01$ lie on one curve (spread
+$0.045\%$ at $N=40$). At $\KO=0.005$ (frame $F_1$, matrix pencil) the rate approaches the
+Navier--Stokes dissipation integral for this star (dashed).}
+\label{fig:damping}
+\end{figure}
 
 \subsection{$a_1$ is inert}
 Holding $a_2 = 25$ and sweeping $a_1 = 6.25/25/100$ gives $f = 1.89112/1.89113/1.89123\kHz$
@@ -513,7 +571,8 @@ carry no scalar content---and here it is empirical.
 \label{sec:shift}
 At $\KO = 0.01$ the shift $\Delta f/f = f(\hat\eta)/f(0) - 1$ measured $+0.40/+0.28/+0.15\%$ at
 $N = 24/32/40$ with non-shrinking differences, and could only be quoted as an upper bound. Two
-observations settled it (33 runs; \texttt{repro/bdnk3d\_viscous\_shift.jl}). First, with the
+observations settled it (33 runs; \texttt{repro/bdnk3d\_viscous\_shift.jl}; Fig.~\ref{fig:shift}).
+First, with the
 frame times held fixed and $\hat\eta$ swept, the shift is roughly linear in $\hat\eta$, whereas
 every physical mechanism---the damped-oscillator correction and the reactive frame terms---is
 second order. Second, halving $\KO$ removes $\approx0.35\%$ of the shift at every $N$: a physical
@@ -538,6 +597,16 @@ survive to $0.00125$, so $\KO = 0.005$ is the floor of the difference protocol a
 control; and the compact viscous stencil (\texttt{visc\_compact}) shifts $f$ by $+0.15\%$ and
 cuts $\gamma_{\rm visc}$ by $32\%$ at $N=24$ and is not to be used for the mode.
 
+\begin{figure}[tb]
+\includegraphics[width=\columnwidth]{figs/fig6_shift}
+\caption{Viscous frequency shift of the $f$-mode in frame $F_1$. Top: against resolution at
+$\hat\eta=0.03$, for two Kreiss--Oliger coefficients, with the damped-oscillator prediction
+$-(\gamma^2-\gamma_0^2)/2\omega^2$ built from the measured damping rates (crosses). Bottom:
+against $\hat\eta$ at $N=40$, $\KO=0.005$; the dotted curve is $\propto\hat\eta^2$. Symbols are the
+mean of the two estimators, error bars half their difference.}
+\label{fig:shift}
+\end{figure}
+
 \subsection{The stability bound is sufficient, not necessary}
 \label{sec:stability}
 $F_1$ violates Eq.~\eqref{eq:bound} in $100\%$ of cells and $100\%$ of proper volume, yet
@@ -549,7 +618,7 @@ at $r/R = 0.994$), i.e.\ $k_c = 15.3, 10.1, 5.8\,\Msun^{-1}$ at $\hat\eta = 0.03
 second-order centred stencil caps the effective wavenumber at $k_{\rm eff} = \sin(kh)/h \le 1/h =
 N/23.0$, so the unstable band is resolved only for $N > 353, 232, 135$---beyond reach at
 $\sim N^4$ cost. The criterion ``unstable iff $k_c < 1/h$'' was therefore tested on the cheap
-$\hat\eta$ axis at $N=24$ ($1/h = 1.043$): six predictions, six correct in sign, with growth
+$\hat\eta$ axis at $N=24$ ($1/h = 1.043$; Fig.~\ref{fig:stab}): six predictions, six correct in sign, with growth
 rates agreeing to $24$--$28\%$ where growth is well developed ($F_1$, $\hat\eta=1.0$: predicted
 $3.50\times10^{-2}$, measured $4.49\times10^{-2}$). And the ordering inverts: at $\hat\eta=0.60$,
 $F_3$ blows up ($q_{20}$ grows $5\times10^4$) while $F_1$ decays, because $k_c(F_3)$ is
@@ -557,6 +626,15 @@ $2.6\times$ smaller. \emph{The violation fraction does not order the instability
 wavenumber does.} The published fractions $60.7\%$ and $21.4\%$ from the 1D radial grid for
 $F_2,F_3$ are a counting artifact; the 3D cell fractions match the 1D proper-\emph{volume}
 fractions ($94.6\%$, $52.6\%$) to $<1\%$.
+
+\begin{figure}[tb]
+\includegraphics[width=\columnwidth]{figs/fig7_stability}
+\caption{Measured growth rate of $\max|\delta v|$ against viscosity at $N=24$ for frames $F_1$
+(circles) and $F_3$ (triangles), with the frame times built from each run's own $\hat\eta$. Dashed
+lines: the predicted onset $\hat\eta_c = C\,h$ from the critical-wavenumber criterion. $F_3$
+destabilises first although it violates the stability bound in fewer cells.}
+\label{fig:stab}
+\end{figure}
 
 %======================================================================
 \section{Comparison with a nonlinear DG engine}

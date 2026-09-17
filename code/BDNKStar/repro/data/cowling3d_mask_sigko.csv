@@ -1,0 +1,5 @@
+# CowlingEvolve3D, cut=false (binary interior mask), sigma_KO=0.004, dt=0.30dx, 23 f-mode periods, seed (2,0), anchor star.
+surface,sigko,nper,N,m,f_pgram,f_pencil,gamma,stable,ratio,agree_pct,df_kHz
+mask,0.004,23,24,0,1.7057336,1.7029345,4.661264e-03,true,2.212e-05,0.1641,0.0819
+mask,0.004,23,32,0,1.7532086,1.7520197,3.590077e-03,true,0.0002615,0.0678,0.0819
+mask,0.004,23,40,0,1.7524110,1.7520013,2.562169e-03,true,0.002776,0.0234,0.0819

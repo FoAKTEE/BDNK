@@ -1,0 +1,10 @@
+# CowlingBDNK3D, N=24 (1/h = 1.0433 /Msun), frame times built at the run's own eta_hat (tau = a*eta/w0).
+# Local sound-sector analysis: unstable band above k_c = C/eta_hat (C = 0.4599 F1, 0.3019 F2, 0.1753 F3), resolved iff k_c < 1/h,
+# i.e. predicted unstable iff eta_hat > C*h. growth_rate = tail growth rate of max|dv| in 1/Msun (negative = decay). Source: journal wf_08a9767f-09d.
+frame,C,N,inv_h,etahat,growth_rate,predicted_unstable
+F1,0.4599,24,1.0433,0.30,-3.06e-3,false
+F1,0.4599,24,1.0433,0.60,5.97e-3,true
+F1,0.4599,24,1.0433,1.00,4.49e-2,true
+F3,0.1753,24,1.0433,0.30,3.81e-3,true
+F3,0.1753,24,1.0433,0.60,2.44e-2,true
+F3,0.1753,24,1.0433,1.00,3.39e-2,true

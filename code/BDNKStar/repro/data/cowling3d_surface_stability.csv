@@ -1,0 +1,11 @@
+# CowlingEvolve3D, cut=true, sigma_KO=0.01, kappa_min=0.5, N=48, 23 f-mode periods, M~1.4 Msun.
+# n_eff = local power in eps ~ (R-r)^n between 0.99R and 0.999R; ratio_N48 = end/start amplitude of q20 over the record.
+# growth_N* = e-folds per f-mode period (crusted EOS; analytic EOS decay). Source: verified census run, journal wf_08a9767f-09d.
+eos,n_eff,w0_last_over_centre,max_dw0_over_w0,ratio_N48,growth_N32,growth_N40,growth_N48
+PolyE_G3.0,0.503,1.55e-01,0.445,7.3e-05,,,
+PolyE_G2.5,0.671,8.34e-02,0.543,3.7e-04,,,
+ShumPoly100,1.005,1.63e-02,0.695,2.8e-02,,,
+MS1,1.839,7.41e-05,0.998,3.7e+13,0.050,0.964,1.508
+H4,1.870,8.42e-05,0.998,1.8e+12,-0.021,0.808,1.465
+APR4,1.946,1.27e-04,0.999,8.0e+14,0.170,0.885,1.589
+SLy,1.954,1.32e-04,0.999,3.9e+11,-0.038,0.714,1.228
