@@ -620,9 +620,50 @@ s=12 filter removes 24% of every element's quadratic mode per step, which on a t
 quadrant grid is a large part of an ℓ=2 pattern. The result is therefore "f within ±2% of the
 1D Cowling value" — the same conclusion the linear cut-cell engine reaches at 0.1%, and a
 quantitative improvement over `DGCart3D`'s −2 to −10% staircase systematic (§7.8) on a grid with
-half the nodes. Resolution and filter-strength checks (nt=3; s_shell = 16, 24) are appended below
-as they complete.
-DGBALL3D_APPEND_PLACEHOLDER
+half the nodes. **Filter strength is not a free knob.** Weakening the shell filter to s = 16 (5% per step on
+the quadratic momentum mode instead of 24%) does not merely reduce the dissipation: the ℓ=2 run
+then develops a *faster* instability (err[D̃] 7×10⁻⁵ at t=180 → 1.2×10⁻² at t=500, e-fold ≈ 50 M⊙,
+blow-up at 540 M⊙) — faster than with no filter at all (e-fold 250 M⊙). Removing the top
+momentum mode while leaving the quadratic mode nearly undamped is destabilizing; the paper's
+s = 12 works because its 24% quadratic-mode damping outweighs the growth. Their parameters are
+kept as the defaults and documented as such.
+**Resolution (nt=3, 1053 elements, 63 072 nodes, same radial shells).** With the paper's filter
+and the subtraction, the ℓ=2 seed decays as at nt=2 until t ≈ 450 M⊙, and then a *spurious
+quadrupolar deformation* grows (q₂₀/q₀₀ 4.8×10⁻³ → 5.3×10⁻² between 450 and 1200, e-fold ≈ 310
+M⊙) and saturates at q₂₀/q₀₀ ≈ 7.5% with err[D̃] 1.0×10⁻², ρ_c −1.2×10⁻³, M_b −3×10⁻⁵; the atmosphere
+stays at rest. At nt=2 the unfiltered instability was not quadrupolar (q₂₀ stayed at 3×10⁻⁴
+while ρ_c collapsed), so these are grid modes of the cubic-symmetric discretization, not one
+physical mode. The static momentum residual of 2–5% of gravity identifies their driver: it is
+the geometric error of representing a 45°-wide spherical patch by a cubic (the discrete
+Jacobian; ~(Δθ)⁴/4! ≈ 1.6%), far above the 10⁻³ of the 1D grid, and the same error acts on every
+perturbation as a spurious force of that size with the grid's angular pattern. The paper's B1 grid
+has 15°-wide elements (6×6 per wedge, (Δθ)⁴/4! ≈ 2×10⁻⁴) and shows no such growth over 10⁴ M⊙.
+**What refinement does and does not do** (ℓ=2 seed, subtraction unless noted; three
+frequency estimators: periodogram / matrix pencil; growth windows of err[D̃] and q₂₀/q₀₀):
+
+| grid | nodes | static residual int./surf. | err[D̃], q₂₀/q₀₀ at t∈[600,800] | at the end | f [kHz] |
+|---|---|---|---|---|---|
+| nt=2, p_t=3 (filter) | 27 776 | 2.7% / 4.7% | 1.1×10⁻⁵, 1.8×10⁻⁴ (falling) | 1.1×10⁻⁵ at 2000 | 1.845 / 1.888 |
+| nt=2, p_t=3, no filter | 27 776 | 2.7% / 4.7% | 6.0×10⁻⁴, 3×10⁻⁴ (growing) | blow-up at 1900 | — |
+| nt=3, p_t=3 (filter) | 63 072 | 2.7% / 4.7% | 3.7×10⁻⁴, 7.9×10⁻³ (growing) | 1.0×10⁻², 7.5% at 2000 (saturated) | — |
+| nt=3, p_t=3, no subtraction | 63 072 | 2.7% / 4.7% | 5.0×10⁻⁴, 8.4×10⁻³ (growing) | 1.3×10⁻³, 2.0% at 1000 | 1.825 / 1.855 |
+| nt=2, p_t=5 (filter) | 63 072 | 0.43% / 3.8% | 4.6×10⁻⁵, 6.9×10⁻⁴ (falling) | 2.1×10⁻³, 2.7% at 1500 (growing from ~800) | 1.891 / 1.917 |
+| nt=3, p_t=3, shell filter s=6 | 63 072 | 2.7% / 4.7% | 2.7×10⁻⁶, 4.9×10⁻⁵ (falling) | 2.4×10⁻⁶, 1.0×10⁻⁵ at 1200 (stable) | 1.707 / 1.809 (over-damped) |
+
+Raising the tangential order to 5 cuts the interior geometric residual six-fold (2.7% → 0.43%,
+as (Δθ)^{p+1} predicts) and brings the periodogram f to +0.4%, but the quadrupolar grid mode
+still appears, later (t ≈ 800) and more slowly (e-fold ≈ 190 M⊙); removing the subtraction
+changes nothing. The paper's central-cube strength (s = 6) applied to every shell does hold
+nt=3 stable for 1200 M⊙ (err[D̃] 2×10⁻⁶ and falling, M_b to 3×10⁻⁹), but at that strength the
+mode is over-damped and its frequency estimators scatter to −4…−9%: the filter that controls
+the grid mode is the same dissipation that destroys the measurement. **Verdict on the 3D method
+as implemented:** on the coarsest grid, with the
+paper's filter, it is stable for 2000 M⊙ and reproduces their static results and the 1D Cowling
+F and f to 0.5% and ±2%; refinement in either h or p exposes a slowly growing, saturating
+quadrupolar grid mode that the exponential filter does not control. The likely cure is the
+one the DG literature uses for exactly this symptom on curved elements — a split-form
+(entropy-stable) or over-integrated volume term in place of the chain-rule strong form — and
+that is the next engineering step, not a parameter choice.
 
 ---
 

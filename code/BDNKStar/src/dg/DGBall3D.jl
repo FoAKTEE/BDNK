@@ -33,6 +33,20 @@
         of the size of the raw residual once the surface moves — VALIDATION.md §7.9).
     Diagnostics: err[D̃], ρ_c (origin), M_b, the real spherical-harmonic moments
     q_ℓm = ∫ D̃ r^ℓ Y_ℓm d³x for (ℓ,m) = (0,0),(2,0),(2,2), max atmosphere speed.
+
+    STATUS (VALIDATION.md §7.10, repro/dgball3d_hkt.jl, 2026-09-17). Coarsest grid
+    (nt=2, p=3; 464 elements, 27 776 nodes, 0.03 s/step on 8 threads): exact free
+    stream; the projected star is a fixed point to 5e-16 with the subtraction and
+    settles to err[D̃] 5e-4 without it (the paper's B1: 6e-4); with the paper's
+    momentum filter the seeded runs are stable for 2000 M⊙ and give F = 2.674 kHz
+    (−0.45%) and f = 1.845/1.888/1.912 kHz (three estimators; −2..+1.5%, Q≈3).
+    Without the filter every seeded run grows an instability with e-fold 250 M⊙.
+    REFINEMENT DOES NOT YET PAY: at nt=3 (or nt=2, p_t=5) a spurious quadrupolar
+    grid mode grows after the seeded transient (e-fold 190–310 M⊙) and saturates
+    at q20/q00 ≈ 7%, with or without the subtraction; the static momentum residual
+    is 2–5% of gravity (the geometric error of a cubic interpolant of a 45° patch,
+    0.4% at p_t=5). The chain-rule strong form is the suspect; a split-form or
+    over-integrated volume term is the next step.
 =#
 module DGBall3D
 
@@ -693,7 +707,27 @@ end
 # ----------------------------------------------------------------------------------
 # diagnostics
 # ----------------------------------------------------------------------------------
-dgball3d_central_density(st::DGBall3DState, eng::DGBall3DEngine) = sum(st.ρ[eng.origin])/length(eng.origin)
+# Lagrange interpolant of a nodal field at reference coordinates (ξ,η,ζ) of element e
+function _interp(eng::DGBall3DEngine, e::BallElem, U, ξ, η, ζ)
+    bs=(eng.bases[e.p[1]],eng.bases[e.p[2]],eng.bases[e.p[3]]); ξs=(ξ,η,ζ)
+    L=[[begin ℓ=1.0; for c in 1:e.N[d]; c==a && continue; ℓ*=(ξs[d]-bs[d].ξ[c])/(bs[d].ξ[a]-bs[d].ξ[c]); end; ℓ end for a in 1:e.N[d]] for d in 1:3]
+    s=0.0
+    @inbounds for k in 1:e.N[3], j in 1:e.N[2], i in 1:e.N[1]; s+=L[1][i]*L[2][j]*L[3][k]*U[nidx(e,i,j,k)]; end
+    s
+end
+"""central rest-mass density: the nodal value(s) at the origin when it is a node (even `nt`),
+otherwise the interpolant of the cube element containing the origin (odd `nt`)."""
+function dgball3d_central_density(st::DGBall3DState, eng::DGBall3DEngine)
+    isempty(eng.origin) || return sum(st.ρ[eng.origin])/length(eng.origin)
+    for e in eng.elems
+        e.region == :cube || continue
+        m=e.map::CubeMap
+        (m.ξlo < 0 < m.ξhi && m.ηlo < 0 < m.ηhi && m.ζlo < 0 < m.ζhi) || continue
+        ξ=-1+2*(0-m.ξlo)/(m.ξhi-m.ξlo); η=-1+2*(0-m.ηlo)/(m.ηhi-m.ηlo); ζ=-1+2*(0-m.ζlo)/(m.ζhi-m.ζlo)
+        return _interp(eng,e,st.ρ,ξ,η,ζ)
+    end
+    error("no cube element contains the origin")
+end
 dgball3d_errD(st::DGBall3DState, eng::DGBall3DEngine) = sqrt(sum(abs2, st.D .- eng.Deq)/sum(abs2, eng.Deq))
 dgball3d_baryon_mass(st::DGBall3DState, eng::DGBall3DEngine) = sum(eng.wq .* eng.J .* st.D)
 dgball3d_volume(eng::DGBall3DEngine) = sum(eng.wq .* eng.J)

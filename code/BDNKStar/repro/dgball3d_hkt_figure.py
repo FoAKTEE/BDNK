@@ -25,11 +25,14 @@ if d is not None:
     f, P = spectrum(d["t"], d["rhoc"]/d["rhoc"][0]); ax[2].semilogy(f, P/P.max(), "C2", lw=0.8, label=r"$\rho_c$, radial seed")
     for fl, name in [(2.6861, "F"), (4.5497, r"H$_1$"), (6.3414, r"H$_2$")]:
         ax[2].axvline(fl, color="k", ls=":", lw=0.8); ax[2].text(fl, 2.0, name, ha="center", fontsize=8)
-d = load("l2_WB")
-if d is not None:
-    f, P = spectrum(d["t"], d["q20"]/abs(d["q00"][0])); ax[2].semilogy(f, 1e-3*P/P.max(), "C3", lw=0.8, label=r"$q_{20}$, $\ell=2$ seed ($\times10^{-3}$)")
-    ax[2].axvline(1.88291, color="C3", ls="--", lw=0.8); ax[2].text(1.88291, 2.0, "f", ha="center", fontsize=8, color="C3")
-ax[2].set_xlabel("f [kHz]"); ax[2].set_ylabel("power (arbitrary units)"); ax[2].set_title("Spectra against linear theory"); ax[2].set_xlim(0.3, 10); ax[2].set_ylim(1e-9, 3); ax[2].legend(fontsize=7)
+for tag, lab, c, off in [("l2_WB", r"$q_{20}$, $\ell=2$ seed, nt=2 ($\times10^{-3}$)", "C3", 1e-3),
+                         ("l2_WB_nt2pt5", r"$q_{20}$, nt=2, $p_t=5$ ($\times10^{-5}$)", "C4", 1e-5),
+                         ("l2_WB_nt3s6", r"$q_{20}$, nt=3, shell filter s=6 ($\times10^{-7}$)", "C5", 1e-7)]:
+    d = load(tag)
+    if d is None: continue
+    f, P = spectrum(d["t"], d["q20"]/abs(d["q00"][0])); ax[2].semilogy(f, off*P/P.max(), c, lw=0.8, label=lab)
+ax[2].axvline(1.88291, color="C3", ls="--", lw=0.8); ax[2].text(1.88291, 2.0, "f", ha="center", fontsize=8, color="C3")
+ax[2].set_xlabel("f [kHz]"); ax[2].set_ylabel("power (arbitrary units)"); ax[2].set_title("Spectra against linear theory"); ax[2].set_xlim(0.3, 10); ax[2].set_ylim(1e-12, 3); ax[2].legend(fontsize=7)
 plt.tight_layout()
 for ext in ("png", "pdf"): plt.savefig(os.path.join(out, f"dgball3d_hkt.{ext}"), dpi=160)
 print("figure written")

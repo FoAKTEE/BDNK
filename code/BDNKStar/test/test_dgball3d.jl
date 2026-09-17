@@ -31,6 +31,11 @@ using BDNKStar.DGBall3D: nidx, nnodes, _p2c, _εpoly, _p_ig, _raw_rhs!
         @test onR ≥ 6*eng.elems[end].N[2]^2
         # the origin is a node of the cube elements and the metric there is regular
         @test length(eng.origin) ≥ 1 && all(isfinite, eng.α[eng.origin]) && all(eng.sqrtγ[eng.origin] .== 1.0)
+        # odd nt with odd p_t: the origin is inside the middle cube element and is not a node (with
+        # even p_t the LGL midpoint would sit on it); the central density is then interpolated
+        eng5, st5 = setup_dgball3d(eos, εc; nt=3, p_t=3, p_int=2, p_surf=2, p_ext=2)
+        @test isempty(eng5.origin)
+        @test abs(dgball3d_central_density(st5, eng5)/dgball3d_central_density(st, eng) - 1) < 1e-4   # measured 5e-6
     end
 
     @testset "free stream: a uniform moving gas on a flat metric has zero RHS" begin
