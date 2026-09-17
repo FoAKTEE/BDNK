@@ -411,6 +411,12 @@ been rerun.
    measurement without the η=0 difference protocol.
 7. Julia: `2f1` parses as the `Float32` literal `20.0`, not `2*f1`. A harmonic search silently
    sampled 15–30 kHz instead of 2f and returned a fake null until caught by synthetic injection.
+8. **`DGCart3D`'s momentum and energy sources are incomplete** (found while deriving `DGBall3D`):
+   it applies only −α(ε+p)W²Φ′ n_i, without the √γ factor, without the metric-derivative term
+   (α/2)√γ T^{ab}∂_iγ_ab and without the +√γ p αΦ′ piece of −√γ E ∂_iα. Its static residual is
+   therefore not TOV (hidden by the well-balanced subtraction) and its dynamics carry an
+   O(p/ε, λ′) inconsistency — a plausible contributor to its −2 to −10% f-mode (§7.8). Still
+   present in `src/`; `DGBall3D` has the complete sources.
 
 ### 7.8 `DGCart3D` limiter fix — equilibrium-preserving Zhang–Shu, deviation-form Rusanov (2026-09-17)
 
@@ -561,6 +567,62 @@ elsewhere (of the size of the raw residual), so it should only be used with a gr
 residual is small (quadratic surface, p=7 centre) — under a finite-amplitude oscillation it
 still drifts ρ_c by +2–4×10⁻³ in 4000 M⊙, where the same runs without it drift by −2×10⁻⁴ but
 damp the mode 100× faster.
+
+
+### 7.10 3+1D cubed-sphere DG star — the Hébert–Kidder–Teukolsky method in `DGBall3D` (2026-09-17)
+
+`src/dg/DGBall3D.jl` implements their 3D method (Secs. II–IV, VI.B, App. A–B): a rounded central
+cube surrounded by six-wedge cubed-sphere shells that conform to the star (their Fig. 14 /
+Table II rescaled to R = 9.586 M⊙), strong-form nodal DG on mapped hexahedra with the chain-rule
+flux divergence and the discrete Jacobian, geometric face matching, the complete Cartesian
+Cowling sources (which reduce to TOV; `DGCart3D`'s do not — §7.7 item 8 below), Γ-law EOS with
+Galeazzi fixing, HLL, SSP-RK3, the `DGCart3D` equilibrium-preserving scaling limiter on the surface
+shells, their exponential momentum filter, and an optional static-residual subtraction. The
+surface sits on a shell boundary and the surface shells are quadratic (the I2 lesson of §7.9).
+Coarse grid `nt=2, p=3`: 464 elements, 27 776 nodes, Δt = 0.10 M⊙, 0.03 s/step on 8 threads.
+Tests `test/test_dgball3d.jl` (23). Data `repro/data/dgball3d_hkt_*` from `repro/dgball3d_hkt.jl`;
+figure `paper/figs/dgball3d_hkt.png`.
+
+**Geometry and consistency.** All Jacobians positive; the ball's volume to 2.3×10⁻⁴; all 42 240
+interior face nodes matched to their partner at identical positions (the wedge rotations and the
+cube–wedge interfaces need no bookkeeping); a uniform moving gas on a flat metric has RHS
+6×10⁻¹⁸ (exact free stream); the origin is a regular node. Static momentum residual / gravity:
+1.9–2.7% in the cube, centre and interior shells, 4.7% in the quadratic surface shells (curved
+p=3 elements; the 1D I2 grid had 10⁻³).
+
+**The aliasing instability and the filter (load-bearing).** Every seeded run without the filter
+develops an exponential instability with e-folding time ≈ 250 M⊙ once the seeded transient has
+decayed (ℓ=0 and ℓ=2 alike; HLL or LLF; with or without the entropy floor or the subtraction):
+err[D̃] and the central density drift at an accelerating rate, mass is created (the chain-rule
+strong form is not exactly conservative on curved elements: ΔM_b/M_b ∝ seed amplitude), and the
+star blows up at t ≈ 600 (no subtraction) to 1900 M⊙ (with). This is the paper's "numerical
+instability in S̃_i on O(100 M⊙) timescales" and their cure works verbatim: the exponential
+modal filter exp[−α(i/p)^s] applied after every step to the **momentum only**, α=36, s=6 in the
+cube and centre shells and s=12 in the cubed-sphere shells. With it, err[D̃] keeps falling (ℓ=2
+seed, t∈[600,800]: 6.0×10⁻⁴ growing → 1.1×10⁻⁵ falling), ρ_c is flat to 10⁻⁶ and M_b to 10⁻⁸.
+Filtering all five variables destroys the star. The filter is on by default and is not optional.
+
+**Results** (nt=2; seeds v = 10⁻³ sin(πr/R) n̂ (ℓ=0) and 10⁻³ sin(πr/R) Y₂₀ n̂ (ℓ=2); 1D references
+F = 2.686 kHz, f = 1.88291 kHz):
+
+| run | T [M⊙] | err[D̃] at T | ρ_c/ρ_c0 − 1 | M_b/M_b0 − 1 | frequency |
+|---|---|---|---|---|---|
+| static, subtraction | 200 | 5×10⁻¹⁶ | 0 | 0 | — |
+| static, no subtraction (paper's scheme) | 2000 | 5.1×10⁻⁴ | −1.3×10⁻⁴ | +1.6×10⁻⁵ | — (paper B1: 6×10⁻⁴, +2.5×10⁻⁴ at 4000) |
+| ℓ=0 seed, subtraction | 2000 | 7.8×10⁻⁶ | −6.9×10⁻⁶ | −4×10⁻⁸ | F = 2.674 kHz (−0.45%); 2F harmonic at 5.3 |
+| ℓ=2 seed, subtraction | 2000 | 1.1×10⁻⁵ | −1.7×10⁻⁶ | −2×10⁻⁸ | f = 1.845 / 1.888 / 1.912 kHz (−2.0 / +0.2 / +1.5%) |
+| ℓ=2 seed, no subtraction | 2000 | 5.1×10⁻⁴ | −1.3×10⁻⁴ | +1.6×10⁻⁵ | f = 1.840 / 1.884 / 1.916 kHz (−2.3 / +0.1 / +1.8%) |
+
+The three ℓ=2 numbers are the periodogram peak, the matrix-pencil pole and a damped-sinusoid fit
+over [30, 600] M⊙; they scatter by ±2% because the mode is heavily damped on this grid (fit
+Q ≈ 3.3, e-folding 115 M⊙ ≈ one period): the record carries only 5–8 usable periods and the
+s=12 filter removes 24% of every element's quadratic mode per step, which on a two-element-per-
+quadrant grid is a large part of an ℓ=2 pattern. The result is therefore "f within ±2% of the
+1D Cowling value" — the same conclusion the linear cut-cell engine reaches at 0.1%, and a
+quantitative improvement over `DGCart3D`'s −2 to −10% staircase systematic (§7.8) on a grid with
+half the nodes. Resolution and filter-strength checks (nt=3; s_shell = 16, 24) are appended below
+as they complete.
+DGBALL3D_APPEND_PLACEHOLDER
 
 ---
 

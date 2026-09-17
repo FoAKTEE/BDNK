@@ -54,6 +54,7 @@ include("dg/DGExactRiemann.jl")
 include("dg/DGSRHydro.jl")
 include("dg/DGStar.jl")
 include("dg/DGStarHP.jl")
+include("dg/DGBall3D.jl")
 include("dg/DGCart2D.jl")
 include("dg/DGCart3D.jl")
 include("mhd/BDNKMHD.jl")
@@ -99,6 +100,7 @@ using .DGExactRiemann
 using .DGSRHydro
 using .DGStar
 using .DGStarHP
+using .DGBall3D
 using .DGCart2D
 using .DGCart3D
 using .BDNKMHD
@@ -125,6 +127,9 @@ export setup_dgstar, evolve_dgstar!, seed_dgstar_radial!, dgstar_central_density
        dgstar_surface_width, dgstar_radial_freq
 export hp_grid, setup_dgstarhp, evolve_dgstarhp!, seed_dgstarhp_radial!, dgstarhp_central_density,
        dgstarhp_errD, dgstarhp_baryon_mass, dgstarhp_spectrum, dgstarhp_surface_state
+export ball_grid, setup_dgball3d, evolve_dgball3d!, seed_dgball3d_radial!, seed_dgball3d_l2!,
+       dgball3d_central_density, dgball3d_errD, dgball3d_baryon_mass, dgball3d_moment,
+       dgball3d_static_residual, dgball3d_volume, dgball3d_rhs_norm
 export setup_dgcart2d, evolve_dgcart2d!, seed_dgcart2d_l2!, dgcart2d_quadrupole,
        dgcart2d_central_density
 export setup_dgcart3d, evolve_dgcart3d!, seed_dgcart3d_l2!, seed_dgcart3d_Y22!,

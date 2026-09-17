@@ -1,0 +1,6 @@
+tag,nt,seed,wellbalanced,T,elements,nodes,dt,seconds,errD_end,rhoc_drift_end,Mb_drift_end,vatm_max,resid_interior,resid_surface,f_pgram_kHz,f_pencil_kHz,df_over_f,gamma,stable,peak1_kHz,peak2_kHz,peak3_kHz
+static_WB,2,none,true,200,464,27776,0.10254,41,5.200e-16,0.000e+00,0.000e+00,0.000e+00,2.664e-02,4.654e-02,NaN,NaN,NaN,NaN,false,NaN,NaN,NaN
+static_noWB,2,none,false,2000,464,27776,0.10254,620,5.084e-04,-1.289e-04,1.606e-05,0.000e+00,2.664e-02,4.654e-02,NaN,NaN,NaN,NaN,false,NaN,NaN,NaN
+l0_WB,2,radial,true,2000,464,27776,0.10254,506,7.765e-06,-6.897e-06,-4.240e-08,0.000e+00,2.664e-02,4.654e-02,NaN,NaN,NaN,NaN,false,NaN,NaN,NaN
+l2_WB,2,l2,true,2000,464,27776,0.10254,478,1.063e-05,-1.737e-06,-2.277e-08,0.000e+00,2.664e-02,4.654e-02,1.84522,1.88755,0.0550,4.680e-03,true,NaN,NaN,NaN
+l2_noWB,2,l2,false,2000,464,27776,0.10254,512,5.084e-04,-1.292e-04,1.605e-05,0.000e+00,2.664e-02,4.654e-02,1.83956,1.88402,0.0552,5.138e-03,true,NaN,NaN,NaN
