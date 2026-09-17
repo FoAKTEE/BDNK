@@ -483,6 +483,85 @@ with a masked (rigid-wall) surface, −7% (§7.7 item 1) — and not the limiter
 now static. It is not a precision measurement of anything; the linear cut-cell engine is.
 
 
+
+### 7.9 1D hp-adapted DG star — the Hébert–Kidder–Teukolsky (2018) method in `DGStarHP` (2026-09-17)
+
+`src/dg/DGStarHP.jl` rebuilds Sec. VI.A of Hébert, Kidder & Teukolsky, PRD 98, 044041
+(arXiv:1804.02003): symmetric staggered domain (no node at r=0), regions of different element
+size and polynomial order (p=3 inside and outside, thin p=1 or p=2 elements across the surface,
+which here sits on an element boundary), Valencia GRHD on the frozen TOV metric with the
+covariant momentum and a Γ-law EOS, Galeazzi-type atmosphere fixing (ρ_atm = 10⁻¹³ρ_c, entropy
+bounds κρ ≤ ε ≤ 100κρ), HLL flux, SSP-RK3, the minmod ΛΠ¹ limiter on the surface elements only.
+Their star is the anchor star of this file. Their grids I1/I2/I1R (Table I) are rescaled to
+R = 9.586 M⊙; I2R (quadratic surface, refined) is ours. Data: `repro/data/dgstarhp_hkt_*.csv`
+from `repro/dgstarhp_hkt.jl`; figure `paper/figs/dgstarhp_hkt.png` (`repro/dgstarhp_hkt_figure.py`);
+tests `test/test_dgstarhp.jl` (46).
+
+**Four things that had to be understood before the method worked** (each is a switch in
+`setup_dgstarhp` and a test):
+
+1. **The doubled domain has an unphysical antisymmetric mode** (odd δρ, even v — a translation
+   of the star) that the spherical problem does not have. It grows from round-off at 0.049/M⊙
+   (e-fold 20 M⊙, the dynamical time) on every grid and for every flux, CFL and limiter, is
+   first visible at the central element, and destroys the star by t ≈ 600 M⊙; its measured
+   antisymmetric fraction is > 1 (pure antisymmetry gives √2). Projecting the state onto the
+   physical parity after every stage (`symmetrize=true`) removes it exactly. The paper's
+   exponential filter (α = 36, s = 6 on all high-order elements — their central-cube setting)
+   also suppresses it, but only by damping the linear mode of every element 5% per step; s ≥ 12
+   does not. This is presumably the "numerical instability in S̃_i on O(100 M⊙) timescales" they
+   cure with the filter.
+2. **A p=3 central element has an O(1) static force error**: the flux x²p(x) of the static star
+   has an x⁴ term whose aliased derivative is as large as the (∝x³) gravitational force at the
+   innermost nodes — residual 3× gravity, scale-free (same on I1 and I1R); the adjacent element
+   has 0.6. With a p=7 central element spanning three nominal widths: 1.7×10⁻⁴ and 1.8×10⁻².
+3. **Linear surface elements carry a static residual of 0.5× gravity** (p ∝ (R−r)² is not linear);
+   quadratic ones hold it to 2.6×10⁻³. With linear elements and no slope limiter the star launches
+   a wind; the paper's minmod flattens S̃ every stage and turns those elements into first-order
+   finite volumes whose mean force balance is O(h²) — that is why their scheme holds.
+4. **The minmod slope must be the exact linear modal coefficient.** The LGL-quadrature formula
+   1.5 Σ w ξ u is exact only for p ≥ 2 and is 3× too large on p=1 elements; with it the limiter
+   rewrote every surface slope every stage and the star was destroyed (ρ_c −97%, M_b +25% from
+   atmosphere resets of negative nodes). Fixed, the paper's I1 reproduces their Figs. 9 and 12.
+
+**Results** (unseeded = the paper's protocol: the truncation-level settling transient is the
+only excitation; seeded = v̂ = 10⁻³ sin(πr/R); linear radial Cowling modes F = 2.686, H1 = 4.550,
+H2 = 6.341, H3 = 8.108 kHz):
+
+| grid, limiter, subtraction | seed | T [M⊙] | err[D̃] at T | ρ_c/ρ_c0 − 1 | M_b/M_b0 − 1 | atmosphere | ρ_c spectrum peaks [kHz] |
+|---|---|---|---|---|---|---|---|
+| I1, minmod, none (the paper's) | — | 10⁴ | 1.1×10⁻³ | −3.3×10⁻⁴ | −3×10⁻¹¹ | transient v≤0.32, then quiet | 2.655 (F −1.2%), 8.19 (H3) |
+| I1, minmod, none | 10⁻³ | 4000 | 4.4×10⁻² | −3.2×10⁻³ | +6.8×10⁻⁴ | wind, v→1 | 2.652 |
+| I1R, minmod, none | — | 10⁴ | 5.1×10⁻³ (growing) | +1.6×10⁻³ | −9×10⁻¹⁰ | v≤0.19 | 4.585, 6.319, 8.069 (H1–H3 ≤0.8%) |
+| I1R, minmod, none | 10⁻³ | 4000 | 7.1×10⁻³ | +1.2×10⁻⁴ | −2×10⁻¹⁰ | v≤0.19 | **2.685, 4.543, 6.298** (F, H1, H2 ≤0.7%) |
+| I2, minmod, none | — | 4000 | 3.5×10⁻² | +1.5×10⁻² | +6.4×10⁻⁴ | wind | — |
+| I2, wb, none | — | 10⁴ | 1.0×10⁻³ | −3.3×10⁻⁴ | −2×10⁻¹¹ | quiet | — |
+| I2R, wb, none | — | 4000 | **1.6×10⁻⁵** | −2.9×10⁻⁶ | −8×10⁻¹² | quiet | 2.692, 4.573 |
+| I2, wb, subtraction | — | 4000 | **1.3×10⁻¹²** | −1.4×10⁻¹² | −1×10⁻¹² | quiet | — |
+| I2, wb, subtraction | 10⁻³ | 4000 | 9.3×10⁻⁴ | +1.8×10⁻³ | −6×10⁻¹⁰ | v≤0.47 | 2.690 (F +0.1%) |
+| I2R, wb, subtraction | 10⁻³ | 4000 | 2.7×10⁻³ | +4.1×10⁻³ | −2×10⁻¹⁰ | v≤0.25 | **2.685, 4.547, 6.326, 8.050** (F–H3 ≤0.7%) |
+| I1, wb, none | — | 4000 | 1.2×10⁻¹ | −2.9×10⁻⁴ | +1.9×10⁻² | wind | — |
+| I2, mean scaling, subtraction | 10⁻³ | 4000 | 2.7×10⁻² | +1.4×10⁻³ | +2×10⁻⁹ | v≤0.43 | 2.666 |
+| I2, no limiter, subtraction | — | 4000 | 2.3×10⁻³ | +3.8×10⁻³ | +8×10⁻⁴ | v≤0.95 | — |
+
+**Reading.** (i) The paper's I1 scheme reproduces their numbers: err[D̃] settles at 1×10⁻³
+(theirs 7×10⁻⁴ at 10⁴), ρ_c −3×10⁻⁴ (theirs −5×10⁻⁴), F and the first overtones appear in the
+spectrum of the settling transient, and M_b is conserved to 10⁻¹¹ because our minmod acts on the
+densitized D̃ (theirs loses M_b at 10⁻⁴). (ii) Our refined I1R does **not** reproduce their
+order-of-magnitude improvement (5×10⁻³ and slowly growing, e-fold ≈ 3000 M⊙, against their
+3×10⁻⁵): thin linear surface elements plus minmod are marginal in this implementation. (iii) The
+equilibrium-preserving scaling limiter of `DGCart3D` on quadratic surface elements reaches that
+quality instead: I2R settles to 1.6×10⁻⁵ with a quiet atmosphere, and with the residual
+subtraction the I2 star is an exact fixed point (10⁻¹²). (iv) Seeded finite-amplitude
+oscillations (v = 10⁻³c) are where the schemes differ most: linear elements with minmod blow a
+wind whatever the seed profile, while the quadratic-element wb configuration returns F, H1, H2,
+H3 to 0.7% or better on I2R. (v) The mean-based scaling (the paper's MRS pathology, and the
+old `DGCart3D` limiter) erodes the surface; with no limiter at all the surface goes slowly
+unstable. (vi) The subtraction is exact at the projected equilibrium and is a small fake force
+elsewhere (of the size of the raw residual), so it should only be used with a grid whose raw
+residual is small (quadratic surface, p=7 centre) — under a finite-amplitude oscillation it
+still drifts ρ_c by +2–4×10⁻³ in 4000 M⊙, where the same runs without it drift by −2×10⁻⁴ but
+damp the mode 100× faster.
+
 ---
 
 *Generated as part of the pre-publication audit. Suite state and all tabulated numbers

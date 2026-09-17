@@ -46,6 +46,7 @@ using Test
     include("test_dyngr.jl")
     include("test_radial_spectrum.jl")
     include("test_dg.jl")
+    include("test_dgstarhp.jl")
     include("test_dg3d.jl")
     include("test_bdnk_mhd.jl")
     include("test_bdnk_mhd1d.jl")

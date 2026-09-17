@@ -53,6 +53,7 @@ include("dg/DGCommon.jl")
 include("dg/DGExactRiemann.jl")
 include("dg/DGSRHydro.jl")
 include("dg/DGStar.jl")
+include("dg/DGStarHP.jl")
 include("dg/DGCart2D.jl")
 include("dg/DGCart3D.jl")
 include("mhd/BDNKMHD.jl")
@@ -97,6 +98,7 @@ using .DGCommon
 using .DGExactRiemann
 using .DGSRHydro
 using .DGStar
+using .DGStarHP
 using .DGCart2D
 using .DGCart3D
 using .BDNKMHD
@@ -121,6 +123,8 @@ export setup_srdg, set_initial!, evolve_srdg!, srdg_primitives, srdg_cell_means,
 export exact_riemann_sr, sample_riemann_sr, RiemannSol
 export setup_dgstar, evolve_dgstar!, seed_dgstar_radial!, dgstar_central_density,
        dgstar_surface_width, dgstar_radial_freq
+export hp_grid, setup_dgstarhp, evolve_dgstarhp!, seed_dgstarhp_radial!, dgstarhp_central_density,
+       dgstarhp_errD, dgstarhp_baryon_mass, dgstarhp_spectrum, dgstarhp_surface_state
 export setup_dgcart2d, evolve_dgcart2d!, seed_dgcart2d_l2!, dgcart2d_quadrupole,
        dgcart2d_central_density
 export setup_dgcart3d, evolve_dgcart3d!, seed_dgcart3d_l2!, seed_dgcart3d_Y22!,
