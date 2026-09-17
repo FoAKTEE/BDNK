@@ -125,7 +125,7 @@ export setup_dgcart2d, evolve_dgcart2d!, seed_dgcart2d_l2!, dgcart2d_quadrupole,
        dgcart2d_central_density
 export setup_dgcart3d, evolve_dgcart3d!, seed_dgcart3d_l2!, seed_dgcart3d_Y22!,
        seed_dgcart3d_Y21!, dgcart3d_central_density, dgcart3d_quadrupole,
-       dgcart3d_quadrupole_m2, dgcart3d_shocktube_diagonal!, dgcart3d_prim_minmax
+       dgcart3d_quadrupole_m2, dgcart3d_shocktube_diagonal!, dgcart3d_prim_minmax, dgcart3d_limiter_census
 
 # Re-export the STEP-0 public surface.
 export Numerics, Units, EquationOfState, Transport, Causality, Recovery

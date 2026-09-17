@@ -255,8 +255,9 @@ these quantities is 1D-sourced permanently.
 
 Time-domain frequency extraction has spectral resolution df = 1/T. At affordable 3D resolution
 the usable record is **23 f-mode periods** (linear/BDNK engines, df/f = 4.4%) or **4.6 periods**
-(`DGCart3D`, df/f = 21.6% — capped not by cost but by the engine's background eroding 10% in
-that time). **Every sub-percent figure below is a parametric peak estimate** (parabolic vertex
+(`DGCart3D`, df/f = 21.6% — a cap set at the time not by cost but by the engine's background
+eroding 10% in that time; the erosion is diagnosed and fixed in §7.8, and the §7.5–7.6 rows below
+are from the pre-fix engine). **Every sub-percent figure below is a parametric peak estimate** (parabolic vertex
 + matrix pencil), not a resolved spectral line, and is quoted only where the two estimators
 agree. No third decimal is meaningful on any 3D frequency.
 
@@ -335,9 +336,12 @@ growth rate, and **F₃ destabilises first** (k_c 2.6× smaller) despite violati
 (ii) a₁ is inert: a₁ = 6.25/25/100 at fixed a₂ gives f = 1.89112/1.89113/1.89123 kHz. The three
 frames differ through a₂ alone, in 3D as in the axial sector.
 
-### 7.5 Nonlinear DG engine — `DGCart3D`, ℓ=2, m = 0 and 2, octant grid, p=2
+### 7.5 Nonlinear DG engine — `DGCart3D`, ℓ=2, m = 0 and 2, octant grid, p=2 (pre-fix engine)
 
-The only engine that can carry a non-axisymmetric perturbation. Analysis window [0, 600] M⊙ =
+**These rows were produced with the mean-based positivity limiter that eroded the background
+(§7.7 item 5, fixed in §7.8).** The m-degeneracy contrasts stand as recorded; the absolute
+frequencies do not (see §7.8 for the fixed engine's f). The only engine that can carry a
+non-axisymmetric perturbation. Analysis window [0, 600] M⊙ =
 4.6 periods at every K, df/f = 21.6%. Seed amplitude A = 10⁻² (v^r = A(r/R)Y).
 
 | K (nodes/axis) | f(m=0) [kHz] | f(m=2) [kHz] | dev vs 1D | ∣Δf∣/f (m=2 vs 0) | ρ_c drift by t=600 | status |
@@ -354,8 +358,9 @@ is a grid artifact; it falls as h^3.2 (K=4–10), consistent with the scheme's O
 within-run Y₂₁ bound (0.009%) is 90× tighter than the best cross-run value and shows the grid's
 genuine degeneracy violation is ≤10⁻⁴ — the cross-run "splitting" is run-to-run systematics
 (background drift, 4.6-period record, nonlinear back-reaction). **Two caveats are load-bearing:**
-the absolute f is −14 to −18% at every K (pre-existing engine systematic, common-mode between
-m=0 and m=2, undiagnosed); and **m=1 is structurally absent** — Re Y₂₁ ∝ n_x n_z has parity
+the absolute f is −14 to −18% at every K (common-mode between m=0 and m=2; diagnosed in §7.8 as
+the eroding background — the fixed engine gives −2 to −10%, its residual staircase-surface
+systematic); and **m=1 is structurally absent** — Re Y₂₁ ∝ n_x n_z has parity
 (−,+,−) under the octant's three separate reflections, so the whole T₂g triplet cannot live on
 this grid. The Y₂₁ seed's mirror extension projects onto the E_g doublet {Y₂₀, Re Y₂₂}
 (q₂₂/q₂₀ = 1.0000 measured, confirmed to 1.2×10⁻⁴), which is why it is a degeneracy diagnostic
@@ -381,9 +386,11 @@ pipeline floor is ~10⁻¹⁶ and nothing above is a diagnostic artifact. **Verd
 frequency shift is resolved at affordable cost**; the one suggestive point collapses with
 resolution, the signature of limiter/Rusanov dissipation rather than fluid nonlinearity. K=12
 (first resolution with a quiet background, drift −6×10⁻³ at t=500) is the experiment that would
-settle it and was not affordable.
+settle it and was not affordable. With the fixed limiter (§7.8) the background is quiet at every
+K (drift −5×10⁻⁴ at t=600 for A=10⁻² at K=6), so the experiment is now affordable; it has not
+been rerun.
 
-### 7.7 Engine defects found during this census (all still present in `src/`)
+### 7.7 Engine defects found during this census (status noted per item)
 
 1. **`setup_evo3d` default `cut=false` gives −6.95%** on f from a run that looks healthy (stable,
    55-period record, window-independent peak) and does not converge away between N=32 and 40.
@@ -393,14 +400,87 @@ settle it and was not affordable.
    0 → 3.3×10⁻⁴ → 2.5×10⁻³ → 8.8×10⁻³ /M⊙ at N=24/32/40/56).
 4. `Background3D.build_star3d:116` sets ρ₀ = ε − p, exact only for Γ=2. Harmless for the linear
    engines (they never read ρ₀); would bite any nonlinear user.
-5. **`DGCart3D`'s background is not static**: ρ_c erodes −10% by t=600 M⊙, −31 to −43% by
-   t=3000 (limiter-driven surface erosion; the well-balanced RHS subtraction is exact, `_limit!`
-   is not). Its absolute f is −16% vs 1D at every K. This one fact caps the record at 4.6 periods
-   and voids the m-degeneracy and nonlinear tests as precision measurements.
+5. **`DGCart3D`'s background is not static** — **FIXED (§7.8)**. As found: ρ_c eroded −10% by
+   t=600 M⊙, −31 to −43% by t=3000, absolute f −16% vs 1D at every K, which capped the record at
+   4.6 periods and voided the m-degeneracy and nonlinear tests as precision measurements. Cause:
+   the well-balanced RHS subtraction is exact, but the mean-based Zhang–Shu positivity limiter
+   flattens the equilibrium's own intra-element profile whenever it engages, and the Rusanov
+   dissipation acts on the equilibrium jump with a state-dependent wave speed. Both now act on
+   the deviation from equilibrium; the equilibrium is a bitwise fixed point of limiter + RHS.
 6. Numerical damping floor γ_num ≈ 1.2×10⁻³ /M⊙ at N=48 — a hard floor under any viscous
    measurement without the η=0 difference protocol.
 7. Julia: `2f1` parses as the `Float32` literal `20.0`, not `2*f1`. A harmonic search silently
    sampled 15–30 kHz instead of 2f and returned a fake null until caught by synthetic injection.
+
+### 7.8 `DGCart3D` limiter fix — equilibrium-preserving Zhang–Shu, deviation-form Rusanov (2026-09-17)
+
+**Attribution.** With the limiter switched off the unseeded star is static to 10⁻¹² (the RHS
+subtraction is exact); with the mean-based limiter on, the same unseeded star is thrown into a
+±3% radial oscillation with 0.6c surface velocities within 50 M⊙. The limiter was the erosion
+source. Mechanism: Zhang–Shu scales every field toward its cell mean, U ← Ū + θ(U−Ū); in a
+surface element D_eq spans orders of magnitude, so any θ<1 flattens the equilibrium's own
+profile and pushes mass from the stellar edge into the atmosphere nodes, every stage of every
+step.
+
+**Fix** (`_limit_wb!`, `_rus5wb`; `wb=true` whenever a stellar background is stored). The
+limiter scales about a reference R that (i) equals U_eq when the deviation δU = U − U_eq
+vanishes and (ii) has the cell mean of U: R_D = D_eq + δD̄·w_D, R_S = S_eq + δS̄·w_S,
+R_τ = τ_eq + ΔK + (δτ̄ − ΔK̄)·w_τ, with mean-one weights w ∝ the background (w_D = D_eq/D̄_eq,
+w_τ = τ_eq/τ̄_eq, w_S ∝ D_eq − D_floor) and ΔK the cold kinetic energy √(R_D²+|R_S|²) − R_D of
+the reference momentum. θ enforces D ≥ ½√γρ_atm and the pressure proxy q ≥ 10⁻¹² q(R) at every
+node (chord root; q is concave so the bound is guaranteed). Only an element whose reference is
+itself infeasible (lost more than half its mass or all of its thermal energy) falls back to the
+mean-based limiter. The Rusanov flux dissipates a_max on δU only and a frozen equilibrium sound
+speed on the equilibrium jump. Two false starts are recorded in the source comments: a uniform
+shift R = U_eq + δŪ swamps the atmosphere nodes and fell back in every surface element
+(ρ_c −3.6% at t=600); a reference without ΔK has negative pressure at the outermost stellar nodes
+for a 1% seed (τ_eq ∝ ρ² vanishes faster than ½Dv̄²), so the three surface elements of the K=6
+grid fell back on every stage (ρ_c −0.7% by t=500, accelerating).
+
+**Fixed-point checks** (`test/test_dg3d.jl`): `_limit!(U_eq)` returns U_eq bitwise;
+`rhs(U_eq) ≡ 0` exactly; the unseeded star with the limiter ON stays at |ρ_c/ρ_c0 − 1| ≤ 2×10⁻¹³
+and |v| ≤ 4×10⁻¹¹ over 250 M⊙ (was −10% eroding); cell means are conserved to 8×10⁻¹⁶ while
+the limiter engages on 67/216 elements under a violent perturbation.
+
+**Seeded star, K=6, p=2, v^r = A(r/R)Y₂₀** (`dgcart3d_limiter_census` classifies what the limiter
+does to each element; "star fallback" = elements with stellar nodes handed to the flattening
+limiter):
+
+| A | t [M⊙] | ρ_c/ρ_c0 − 1 | Σ D/Σ D₀ − 1 | max∣v∣ | elements free / scaled / fallback | star fallback |
+|---|---|---|---|---|---|---|
+| 10⁻² | 100 | −1.4×10⁻⁴ | +1.6×10⁻⁵ | 0.075 | 209 / 0 / 7 (all r/R = 1.29–1.36) | 0 |
+| 10⁻² | 600 | −5.8×10⁻⁴ | −1.6×10⁻⁴ | 0.003 | 211 / 0 / 5 | 0 |
+| 10⁻² | 1000 | −7.3×10⁻⁴ | −3.6×10⁻⁴ | 0.003 | 211 / 0 / 5 | 0 |
+| 10⁻³ | 600 | −1.3×10⁻⁵ | +1.5×10⁻⁶ | 0.001 | 216 / 0 / 0 | 0 |
+
+The A=10⁻² drift decelerates (−1.2, −1.3, −1.0, −0.9, −0.7, −0.4, −0.2, −0.07 ×10⁻⁴ per 100 M⊙
+from t=200) toward ≈ −7.5×10⁻⁴, the order of the mode's kinetic energy fraction thermalised by
+the scheme's dissipation as the oscillation decays; it scales as A² (−1.3×10⁻⁵ at A=10⁻³).
+Pre-fix values at the same (K, A, t=600): −1.0×10⁻¹; first attempt −3.6×10⁻²; second −8.5×10⁻³.
+The fallback elements are the pure-atmosphere corner elements of the octant box, where ejecta
+arrive with a negative τ error; no stellar element is ever flattened after the initial half
+period (a transient of ≤2 surface elements at t≈50 is recorded in the test).
+
+**f-mode from the fixed engine** (`analyze_qnm`, window [0, T], periodogram / matrix pencil;
+1D reference 1.88291 kHz):
+
+| K (nodes/axis) | A | T [M⊙] | periods | df/f | f_pgram [kHz] | f_pencil [kHz] | vs 1D | envelope | ρ_c drift |
+|---|---|---|---|---|---|---|---|---|---|
+| 6 (18) | 10⁻² | 600 | 5.6 | 18% | 1.8142 | 1.7568 | −3.6% / −6.7% | decaying (0.55) | −5.8×10⁻⁴ |
+| 6 (18) | 10⁻³ | 600 | 5.6 | 18% | 1.8228 | 1.7581 | −3.2% / −6.6% | flat at noise floor | −1.3×10⁻⁵ |
+| 8 (24) | 10⁻² | 600 | 5.6 | 18% | 1.8104 | 1.8512 | −3.9% / −1.7% | decaying (0.58) | −5.2×10⁻⁴ |
+| 10 (30) | 10⁻² | 600 | 5.6 | 18% | 1.6935 | 1.6887 | −10.1% / −10.3% | decaying (0.57) | −3.7×10⁻⁴ |
+| 8 (24) | 10⁻² | 1300 | 12.1 | 8.7% | 1.7985 | 1.7708 | −4.5% / −6.0% | decaying (0.58) | +1.3×10⁻⁴ (min −5.3×10⁻⁴ at t≈700, recovering) |
+
+A third estimator, the median half-period between zero crossings of the cubic-detrended q₂
+record after t=100, gives 1.70/1.81/1.75/1.71/1.80 kHz for the five rows (−10 to −4%) with a
+6–12% half-period scatter; the detrended-away slow quadrupole is comparable to the oscillation
+amplitude in every run. Pre-fix: 1.61/1.59/1.57 kHz (−14 to −16%) at K=6/8/10 with a growing
+envelope. **Reading.** The fixed engine's f is low by 2–10% with estimator scatter of the same
+size and no monotone trend in K (K=10 is the lowest). That residual is the staircase/atmosphere
+surface of a nodal DG star at 14–23 nodes across R — the same systematic the linear engine shows
+with a masked (rigid-wall) surface, −7% (§7.7 item 1) — and not the limiter, whose background is
+now static. It is not a precision measurement of anything; the linear cut-cell engine is.
 
 
 ---

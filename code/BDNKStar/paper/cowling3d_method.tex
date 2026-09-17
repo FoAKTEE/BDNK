@@ -653,16 +653,49 @@ artifact falling as $h^{3.2}$, consistent with the scheme's $O(h^3)$; a single r
 $Y_{21}$, whose mirror extension populates both $E_g$ channels on one background, bounds the
 grid's genuine degeneracy violation at $9\times10^{-5}$---a bound that the linear engine's
 fourteen-figure $E_g$ agreement (Sec.~\ref{sec:fullcube}) has since superseded by ten orders of
-magnitude. Two facts, however, make the linear cut-cell method the one to use for precision. The DG background is not static: the well-balanced
-subtraction is exact but the limiter is not, and $\rho_c$ erodes $-10\%$ by $4.6$ periods and
-$-31$ to $-43\%$ by $3000\,\Msun$, capping the usable record at $\Delta f/f = 21.6\%$ and putting
-its absolute $f$ at $-16\%$. And the octant's three separate reflections admit only the $E_g$
-doublet $\{Y_{20},\mathrm{Re}\,Y_{22}\}$; the entire $T_{2g}$ triplet, including all of $m=1$, is
-structurally absent from the domain. A search for nonlinear amplitude dependence in the DG
+magnitude.
+
+The DG engine also supplied a lesson about what a standard RKDG scheme does to a star. In its
+first form the background was not static: the well-balanced subtraction of the equilibrium
+residual is exact, but the mean-based Zhang--Shu positivity limiter is not. It scales every field
+toward its cell mean, $U \leftarrow \bar U + \theta(U-\bar U)$, and in a surface element, where
+$D_{\rm eq}$ spans orders of magnitude, any $\theta<1$ flattens the equilibrium's own profile and
+pushes mass from the stellar edge into the atmosphere nodes on every stage of every step. With the
+limiter off the unseeded star is static to $10^{-12}$; with it on, the same unseeded star is
+thrown into a $\pm3\%$ radial oscillation with $0.6c$ surface velocities within $50\,\Msun$, and
+once seeded $\rho_c$ erodes $-10\%$ by $4.6$ periods and $-31$ to $-43\%$ by $3000\,\Msun$, which
+put its absolute $f$ at $-16\%$ and capped the usable record at $\Delta f/f = 21.6\%$. The
+Rusanov dissipation contributes a second, smaller channel: it acts on the equilibrium jump across
+each face with a state-dependent wave speed. Both are removed by working on the deviation
+$\delta U = U - U_{\rm eq}$. The limiter scales toward a reference $R$ that equals $U_{\rm eq}$
+when $\delta U$ vanishes and has the cell mean of $U$---the mean deviation is shared out in
+proportion to the background, so the atmosphere nodes receive essentially none of it---and whose
+energy carries the cold kinetic energy $\sqrt{R_D^2+|R_S|^2}-R_D$ of its own momentum; without
+that term the reference has negative pressure at the outermost stellar nodes for a $1\%$ velocity
+seed, because $\tau_{\rm eq}\propto\rho^2$ vanishes at the surface faster than $\tfrac12 D\bar v^2$,
+and the surface elements fall back to the flattening limiter. The flux dissipates the
+state-dependent wave speed on $\delta U$ only and a frozen equilibrium sound speed on the
+equilibrium jump. The equilibrium is then a bitwise fixed point of limiter and right-hand side:
+the unseeded star stays static to $2\times10^{-13}$ in $\rho_c$ with the limiter on, and a $1\%$
+velocity seed leaves $\rho_c$ at $-7\times10^{-4}$ after nine periods, decelerating toward the
+value set by the thermalised mode energy, with no stellar element ever handed to the fallback.
+The $f$-mode of the fixed engine is $1.69$--$1.85\kHz$ at $K=6$--$10$ in $4.6$--$12$-period
+windows ($-2$ to $-10\%$, with estimator scatter of the same size and no monotone trend in $K$)
+with a decaying envelope, where the eroding engine gave $1.57$--$1.61\kHz$ with a growing one.
+What remains is the surface systematic of a nodal DG star at $14$--$23$ nodes across $R$, the
+analogue of the $-7\%$ that the linear engine shows with a masked surface
+(Sec.~\ref{sec:cutcell}), and it is not a limiter effect.
+
+Two facts still make the linear cut-cell method the one to use for precision. The octant's three
+separate reflections admit only the $E_g$ doublet $\{Y_{20},\mathrm{Re}\,Y_{22}\}$; the entire
+$T_{2g}$ triplet, including all of $m=1$, is structurally absent from the domain. And a
+time-domain frequency from a nonlinear evolution carries the $1/T$ resolution of its record,
+which at $K\le10$ is tens of percent. A search for nonlinear amplitude dependence in the pre-fix
 engine returned no resolved shift: the one suggestive point ($-1.4\pm1.0\%$ at seed amplitude
 $0.1$, $K=8$) becomes $-7.5\pm0.9\%$ at $K=6$, a $5.4\times$ change for a $25\%$ refinement, and
 no second harmonic is detected ($A_{2f}/A_f < 0.09$--$0.19$ at $\xi/R = 0.41$). The linear engine's
-exact amplitude proportionality was the control that established this.
+exact amplitude proportionality was the control that established this; with a static background
+the experiment can now be repeated at the resolution it needs.
 
 %======================================================================
 \section{Limitations and defects}

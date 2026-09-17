@@ -28,6 +28,49 @@ using BDNKStar
         @test maximum(abs.(ρc .- ρc0))/ρc0 < 1e-8   # machine-zero static drift
     end
 
+    # THE FIXED-POINT PROPERTY — the equilibrium must be invariant under BOTH the limiter and
+    # the RHS, not only the RHS. Before the equilibrium-preserving limiter, the unseeded star was
+    # thrown into a ±3% radial oscillation with 0.6c surface velocities within 50 M⊙ by the
+    # limiter alone (RHS subtraction exact; limiter=false stayed static to 1e-12).
+    @testset "equilibrium is a fixed point of the limiter and of the RHS" begin
+        eng, st = setup_dgcart3d(eos, εc; Kx=6, Ky=6, Kz=6, p=2, cfl=0.2)
+        D0 = copy(st.D); τ0 = copy(st.τ); S0 = copy(st.Sx)
+        BDNKStar.DGCart3D._limit!(st, eng)
+        @test st.D == D0 && st.τ == τ0 && st.Sx == S0             # bitwise: the limiter does nothing
+        r = [zeros(size(st.D)) for _ in 1:5]
+        BDNKStar.DGCart3D._rhs!(r..., st, eng)
+        @test maximum(abs, r[1]) == 0.0 && maximum(abs, r[5]) == 0.0   # rhs(U_eq) ≡ 0 exactly
+        # and the LONG unseeded evolution stays static with the limiter ON (25 M⊙ ≈ 20% of a
+        # period would already show the old ±3% excitation)
+        ρc0 = dgcart3d_central_density(st, eng)
+        ts, q2, ρc = evolve_dgcart3d!(st, eng; tmax=120.0, sample_dt=30.0)
+        @test maximum(abs.(ρc .- ρc0))/ρc0 < 1e-9
+        mn = dgcart3d_prim_minmax(st)
+        @test max(abs(mn[5]), abs(mn[6])) < 1e-6                     # no spurious surface velocities
+    end
+
+    @testset "seeded star: surface elements stay on the equilibrium-preserving path" begin
+        # A 1% velocity seed used to send the three surface elements of this grid to the flattening
+        # fallback on every stage (reference momentum without its kinetic energy → negative reference
+        # pressure where τ_eq → 0). With the energy-consistent reference no element that contains
+        # stellar nodes may fall back, at t=0 or after half a period.
+        eng, st = setup_dgcart3d(eos, εc; Kx=6, Ky=6, Kz=6, p=2, cfl=0.2)
+        seed_dgcart3d_l2!(st, eng; A=1e-2)
+        c0 = BDNKStar.DGCart3D.dgcart3d_limiter_census(st, eng)
+        @test c0.fallback == 0 && c0.scaled == 0
+        ρc0 = dgcart3d_central_density(st, eng)
+        ts, q2, ρc = evolve_dgcart3d!(st, eng; tmax=50.0, sample_dt=50.0)
+        c1 = BDNKStar.DGCart3D.dgcart3d_limiter_census(st, eng)
+        # at half a period the seed's outward kick has put ejecta with a negative τ error into two
+        # corner elements that hold ONE stellar node each (r/R=0.993) among 26 atmosphere nodes; their
+        # mean τ is below zero, so no mean-preserving reference can be feasible there. Bounded, not zero.
+        @test c1.star_fallback ≤ 2
+        ts, q2, ρc = evolve_dgcart3d!(st, eng; tmax=50.0, sample_dt=50.0)
+        c2 = BDNKStar.DGCart3D.dgcart3d_limiter_census(st, eng)
+        @test c2.star_fallback == 0                # and none from one period on (0 through t=1000 measured)
+        @test abs(ρc[end]/ρc0 - 1) < 2e-3        # was −10% by 4.6 periods with the mean-based limiter
+    end
+
     @testset "3D shock sanity (Martí–Müller test 1 along x axis)" begin
         r = dgcart3d_shocktube_diagonal!(eos; K=12, p=2, tmax=0.25, dir=:x,
                                          ρL=10.0, pL=13.33, ρR=1.0, pR=1e-3)
