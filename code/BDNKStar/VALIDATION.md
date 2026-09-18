@@ -699,6 +699,38 @@ shells are quadratic with the positivity-only scaling limiter, the configuration
 favoured. The corrective step is therefore the paper's own: linear surface shells with the
 per-direction ΛΠ¹ minmod and the physical-state check, in 3D.
 
+**The paper's surface recipe in 3D (2026-09-18).** `limiter=:minmod` with `surface=:linear`
+implements it: 10 linear shells of h=R/32 across [R−2h, R+8h], the ΛΠ¹ slope limiter per
+reference direction with neighbour means across the six sides (element adjacency from the
+geometric face matching), higher modes dropped when any direction is limited, then the
+physical-state check with slope halving; means and slopes in the reference coordinates, as
+they do. Static residual of the linear shells 0.59 of gravity (the 1D value). At nt=2 the
+unseeded star settles to err[D̃] 1.3×10⁻³ with M_b drifting at 10⁻⁴ (their reported level for
+this limiter on deformed elements). At nt=3 with the ℓ=2 seed and the momentum filter, no
+subtraction — their B1 recipe except for the angular resolution — err[D̃] is already 4.9×10⁻³
+at t∈[200,400], 2.9×10⁻² at [600,800], and the run blows up before 1500 M⊙: worse than the
+quadratic shells with the scaling limiter, which saturate. The one remaining difference from
+their B1 grid was the element width, 30° here against their 15° (6×6 per wedge), so the same
+recipe was run on their grid: nt=6, 5400 elements, 276 480 nodes (their B1 has 5184), Δt = 0.08.
+The interior static residual falls to 0.4% as the geometry predicts, the surface shells stay at
+0.59, and the seeded run fails the same way — err[D̃] 4.7×10⁻³ at [200,400], 3.5×10⁻² at [600,800],
+blow-up before 1200 M⊙. **Angular resolution is not the missing ingredient.** Every 3D surface
+treatment tried here is unstable to a seeded non-radial perturbation beyond a few hundred
+dynamical times except two: quadratic shells with the equilibrium-preserving scaling limiter and
+the paper's filter at nt=2 (stable, f to ±2%), and the s=6 filter in every shell at nt=3 (stable,
+over-damped). What differs from the paper's stable B1 evolution that we have not reproduced:
+their isotropic coordinates (a conformally flat spatial metric; ours is the anisotropic areal
+Cartesian one), their exact atmosphere and inversion-fixing details (Galeazzi et al. App. C),
+their surface inside a shell rather than on a boundary, a smaller Courant number
+(Δt·a_max/Δx_min ≈ 0.18 against our 0.25), and whatever their ΛΠ^N implementation does beyond
+the description — their code (SpECTRE) is open and its `Minmod` limiter and TOV test are the
+right reference to check against next. Data: `repro/data/dgball3d_hkt_series_mm_*.csv`.
+
+**Step-2 verdict.** The 3D method is implemented and verified in its static and coarse-grid
+behaviour; at coarse resolution it reproduces the paper's static settling and gives F to 0.5%
+and f to ±2%; it is not yet a refinable precision tool, and the obstacle has been localized to
+the star–atmosphere interface on the curved surface shells, not to the volume discretization.
+
 ---
 
 *Generated as part of the pre-publication audit. Suite state and all tabulated numbers
