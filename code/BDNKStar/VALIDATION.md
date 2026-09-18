@@ -678,6 +678,27 @@ one the DG literature uses for exactly this symptom on curved elements — a spl
 (entropy-stable) or over-integrated volume term in place of the chain-rule strong form — and
 that is the next engineering step, not a parameter choice.
 
+**Split form and localization (2026-09-18).** Two follow-ups were done. (i) The volume term was
+re-implemented in the flux-differencing split form of Gassner–Winters–Kopriva with Kopriva's
+curl-form metric vectors and a Kennedy–Gruber-type two-point flux for the Valencia system
+(`volume=:split`): the discrete metric identity closes to 4×10⁻¹⁵, free stream is exact
+(2×10⁻¹⁷), the static star is a fixed point with the subtraction and settles to 1.5×10⁻³ without
+it. It did **not** cure the nt=3 grid mode: its static residual is larger (7–11% of gravity
+against 2–5%) and the nt=3 seeded run blows up before 1500 M⊙ where the chain form saturates,
+at twice the cost. The chain form stays the default. (ii) The Y₂₀ moment and the density error
+were tracked *per region* on the chain-form nt=3 run (`repro/data/dgball3d_gridmode_localization_nt3.txt`):
+the growth starts in the **surface shells** (their q₂₀/q₀₀ −1.8×10⁻³ → −5.7×10⁻³ and their
+relative density error 3.0×10⁻³ → 1.1×10⁻² between t=500 and 800) and spreads inward with a
+lag (interior error 2.3×10⁻⁴ → 1.0×10⁻³), while the cube and centre shells stay at 10⁻⁵. The
+grid mode is therefore a surface-shell instability of the star–atmosphere interface on the
+curved shells, not an interior volume-discretization effect — which is also why the strong s=6
+filter in every shell (it damps the surface shells' momentum modes) is what stabilizes nt=3,
+and why the split form, which changes only the volume term, cannot help. The paper controls
+exactly this region with the minmod slope limiter on *linear* surface shells; our 3D surface
+shells are quadratic with the positivity-only scaling limiter, the configuration the 1D study
+favoured. The corrective step is therefore the paper's own: linear surface shells with the
+per-direction ΛΠ¹ minmod and the physical-state check, in 3D.
+
 ---
 
 *Generated as part of the pre-publication audit. Suite state and all tabulated numbers

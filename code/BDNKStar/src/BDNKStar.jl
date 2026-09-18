@@ -129,7 +129,7 @@ export hp_grid, setup_dgstarhp, evolve_dgstarhp!, seed_dgstarhp_radial!, dgstarh
        dgstarhp_errD, dgstarhp_baryon_mass, dgstarhp_spectrum, dgstarhp_surface_state
 export ball_grid, setup_dgball3d, evolve_dgball3d!, seed_dgball3d_radial!, seed_dgball3d_l2!,
        dgball3d_central_density, dgball3d_errD, dgball3d_baryon_mass, dgball3d_moment,
-       dgball3d_static_residual, dgball3d_volume, dgball3d_rhs_norm
+       dgball3d_static_residual, dgball3d_volume, dgball3d_rhs_norm, dgball3d_metric_identity
 export setup_dgcart2d, evolve_dgcart2d!, seed_dgcart2d_l2!, dgcart2d_quadrupole,
        dgcart2d_central_density
 export setup_dgcart3d, evolve_dgcart3d!, seed_dgcart3d_l2!, seed_dgcart3d_Y22!,

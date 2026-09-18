@@ -16,6 +16,10 @@
 #     A=1e-2, t=600 / 1000     : ρ_c −5.8e-4 / −7.3e-4 (decelerating), star elements never
 #                                on the fallback path, max|v| 0.003 after the transient
 #     A=1e-3, t=600            : ρ_c −1.3e-5  (∝ A²: thermalised mode energy)
+#     SOURCE-TERM FIX (later the same day, repro/data/dgcart3d_fmode_scan_srcfix.csv): the momentum
+#     and energy sources lacked the √γ factor and the metric-derivative term; with the complete
+#     sources the same scan gives f = −0.55/−1.1/−3.0% at K=6/8/10 (pencil −0.04/−1.2/−3.5%).
+#     The line below is the PRE-fix result.
 #     f-mode, K=6/8/10, T=600–1300: 1.69–1.85 kHz (−2 to −10%, estimator scatter of the same
 #                                size, non-monotone in K), envelope DECAYING (pre-fix: 1.57–1.61
 #                                kHz, growing). The residual is the staircase/atmosphere surface

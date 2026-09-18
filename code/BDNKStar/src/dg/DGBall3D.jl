@@ -63,7 +63,7 @@ using LinearAlgebra: det, inv, norm, cross, dot
 export DGBall3DEngine, DGBall3DState, ball_grid, setup_dgball3d, evolve_dgball3d!,
        seed_dgball3d_radial!, seed_dgball3d_l2!, dgball3d_central_density, dgball3d_errD,
        dgball3d_baryon_mass, dgball3d_moment, dgball3d_static_residual, dgball3d_volume,
-       dgball3d_rhs_norm
+       dgball3d_rhs_norm, dgball3d_metric_identity
 
 # ----------------------------------------------------------------------------------
 # geometry: mappings from the reference cube [−1,1]³ (their Appendix A)
@@ -188,12 +188,13 @@ struct DGBall3DEngine
     ρ_atm::Float64; ρ_cut::Float64; ε_atm::Float64; p_atm::Float64; εfac_max::Float64
     flux::Symbol; limiter::Symbol; limit_regions::Vector{Symbol}
     filter::Symbol; filt_vars::Symbol; filt_α::Float64; filt_s_center::Int; filt_s_shell::Int
-    wellbalanced::Bool; entropy_floor::Bool
+    wellbalanced::Bool; entropy_floor::Bool; volume::Symbol
     cfl::Float64; dxmin::Float64
     # node geometry
     x::Vector{Float64}; y::Vector{Float64}; z::Vector{Float64}; r::Vector{Float64}
     J::Vector{Float64}                     # det ∂x/∂x̄
     Ji::Array{Float64,3}                   # Ji[b,a,i] = ∂x̄^b/∂x^a
+    Ja::Array{Float64,3}                   # Ja[b,a,i] = J ∂x̄^b/∂x^a in Kopriva's curl form (discretely divergence-free)
     wq::Vector{Float64}                    # tensor LGL weight w_i w_j w_k (quadrature weight without J)
     α::Vector{Float64}; elam::Vector{Float64}; sqrtγ::Vector{Float64}
     nx::Vector{Float64}; ny::Vector{Float64}; nz::Vector{Float64}
@@ -322,7 +323,7 @@ end
     setup_dgball3d(eos, εc; grid=ball_grid(R), Γ=2.0, κ=eos.κ, atm_fac=1e-13, cut_fac=10.0,
                    εfac_max=100.0, flux=:hll, limiter=:wb, limit_regions=[:surface],
                    filter=:all, filt_vars=:momentum, filt_α=36.0, filt_s_center=6, filt_s_shell=12,
-                   wellbalanced=true, entropy_floor=true, cfl=0.25,
+                   wellbalanced=true, entropy_floor=true, volume=:chain, cfl=0.25,
                    h_tov=2e-4, grid_kwargs...) -> (engine, state)
 
 Build the cubed-sphere DG star. `grid` is a `ball_grid` NamedTuple (or pass its keyword
@@ -337,13 +338,20 @@ the central cube/shells and s = 12 in the cubed-sphere shells, after every full 
 (`filter=:all, filt_vars=:momentum`). Filtering all five variables (`filt_vars=:all`) destroys
 the star instead. Measured (nt=2 grid, ℓ=2 seed 1e-3, t ∈ [600,800]): err[D̃] 6.0e-4 and
 growing without the filter, 1.1e-5 and falling with it; the mode amplitude is 40% lower.
+
+`volume=:chain` (default) is the paper's chain-rule strong form; `volume=:split` is the
+flux-differencing split form with Kopriva's curl-form metrics and a Kennedy–Gruber-type
+two-point flux (exact free stream through the discrete metric identity, 2× the cost). The
+split form did NOT cure the quadrupolar grid mode that appears at nt=3 (VALIDATION.md §7.10):
+its static residual is larger (7–11% of gravity against 2–5%) and the nt=3 seeded run blows up
+where the chain form saturates. It is kept for experiments.
 """
 function setup_dgball3d(eos::BarotropicEOS, εc::Float64; grid=nothing, Γ::Float64=2.0,
         κ::Float64=(eos isa ShumPolytrope ? eos.κ : 100.0), atm_fac::Float64=1e-13, cut_fac::Float64=10.0,
         εfac_max::Float64=100.0, flux::Symbol=:hll, limiter::Symbol=:wb, limit_regions::Vector{Symbol}=[:surface],
         filter::Symbol=:all, filt_vars::Symbol=:momentum, filt_α::Float64=36.0, filt_s_center::Int=6, filt_s_shell::Int=12,
         wellbalanced::Bool=true, entropy_floor::Bool=true,
-        cfl::Float64=0.25, h_tov::Float64=2e-4, grid_kwargs...)
+        volume::Symbol=:chain, cfl::Float64=0.25, h_tov::Float64=2e-4, grid_kwargs...)
     star=solve_tov(eos,εc;h=h_tov); R,M=star.R,star.M
     g = grid === nothing ? ball_grid(R; grid_kwargs...) : grid
     elems,Ntot=_build_elems(g); K=length(elems)
@@ -380,8 +388,10 @@ function setup_dgball3d(eos::BarotropicEOS, εc::Float64; grid=nothing, Γ::Floa
         end
     end
     all(J .> 0) || error("negative Jacobian: $(count(J .≤ 0)) nodes (mapping orientation)")
-    # ---- faces: area vectors, coefficients, geometric matching
-    faces=_build_faces(elems,bases,x,y,z,Jm,J)
+    # ---- contravariant metric vectors in the curl form (Kopriva 2006): Σ_b D^b Ja^b_a = 0 discretely
+    Ja=_curl_metrics(elems,bases,coords,Jm,Ntot)
+    # ---- faces: area vectors (= ±Ja^b at the face), coefficients, geometric matching
+    faces=_build_faces(elems,bases,x,y,z,Ja,J)
     # ---- Cowling metric at the nodes (areal Cartesian coordinates)
     rt=star.r; mt=star.m; νt=star.ν; pt=star.p; et=star.ε
     m_of(rr)= rr<R ? _lin(rt,mt,rr) : M
@@ -414,14 +424,51 @@ function setup_dgball3d(eos::BarotropicEOS, εc::Float64; grid=nothing, Γ::Floa
     end
     Seq=(zeros(Ntot),zeros(Ntot),zeros(Ntot),zeros(Ntot),zeros(Ntot))
     eng=DGBall3DEngine(elems,faces,bases,K,Ntot,Γ,κ,eos,R,M,ρ_atm,cut_fac*ρ_atm,ε_atm,p_atm,εfac_max,
-                       flux,limiter,limit_regions,filter,filt_vars,filt_α,filt_s_center,filt_s_shell,wellbalanced,entropy_floor,cfl,dxmin,
-                       x,y,z,r,J,Ji,wq,α,elam,sqrtγ,nx,ny,nz,Φp,λp,gor,origin,
+                       flux,limiter,limit_regions,filter,filt_vars,filt_α,filt_s_center,filt_s_shell,wellbalanced,entropy_floor,volume,cfl,dxmin,
+                       x,y,z,r,J,Ji,Ja,wq,α,elam,sqrtγ,nx,ny,nz,Φp,λp,gor,origin,
                        copy(st.D),copy(st.Sx),copy(st.Sy),copy(st.Sz),copy(st.τ),Seq)
     wellbalanced && _raw_rhs!(Seq..., st, eng)
     return eng, st
 end
 
-# face node lists per side, ordered; the outward area vector from the discrete Jacobian columns
+# derivative of a nodal (N1,N2,N3) block along reference direction d
+function _dline(blk::Array{Float64,3}, e::BallElem, d::Int, bases)
+    D=bases[e.p[d]].D; N1,N2,N3=e.N; out=zeros(N1,N2,N3)
+    @inbounds for k in 1:N3, j in 1:N2, i in 1:N1
+        s=0.0
+        if d==1;     for l in 1:N1; s+=D[i,l]*blk[l,j,k]; end
+        elseif d==2; for l in 1:N2; s+=D[j,l]*blk[i,l,k]; end
+        else;        for l in 1:N3; s+=D[k,l]*blk[i,j,l]; end end
+        out[i,j,k]=s
+    end
+    out
+end
+# Kopriva's conservative curl form of the contravariant vectors Ja^b_n = J ∂ξ^b/∂x^n:
+#   Ja^b_n = −½ [∇_ξ × ( X_l ∇_ξ X_m − X_m ∇_ξ X_l )]_b,  (n,m,l) cyclic,
+# evaluated with the same D matrices as the scheme, so that Σ_b D^b (Ja^b_n) = 0 holds exactly
+# at every node (free-stream preservation of the split-form volume term).
+function _curl_metrics(elems, bases, coords, Jm, Ntot)
+    Ja=zeros(3,3,Ntot)
+    for e in elems
+        N1,N2,N3=e.N
+        X=[zeros(N1,N2,N3) for _ in 1:3]; dX=[[zeros(N1,N2,N3) for _ in 1:3] for _ in 1:3]   # dX[a][d] = ∂_{ξ_d} X_a
+        for k in 1:N3, j in 1:N2, i in 1:N1
+            n=nidx(e,i,j,k)
+            for a in 1:3; X[a][i,j,k]=coords[a][n]; for d in 1:3; dX[a][d][i,j,k]=Jm[a,d,n]; end; end
+        end
+        cyc=((1,2,3),(2,3,1),(3,1,2))
+        for (nn,mm,ll) in cyc
+            V=[X[ll].*dX[mm][d] .- X[mm].*dX[ll][d] for d in 1:3]
+            for (b,b1,b2) in cyc
+                curl=_dline(V[b2],e,b1,bases) .- _dline(V[b1],e,b2,bases)
+                for k in 1:N3, j in 1:N2, i in 1:N1; Ja[b,nn,nidx(e,i,j,k)]=-0.5*curl[i,j,k]; end
+            end
+        end
+    end
+    Ja
+end
+
+# face node lists per side, ordered
 function _face_nodes(e::BallElem, side::Int)
     N1,N2,N3=e.N; out=Int[]
     if side ≤ 2
@@ -436,7 +483,7 @@ function _face_nodes(e::BallElem, side::Int)
     end
     out
 end
-function _build_faces(elems, bases, x, y, z, Jm, J)
+function _build_faces(elems, bases, x, y, z, Ja, J)
     faces=BallFace[]
     key(px,py,pz)=(round(Int64,px*1e8), round(Int64,py*1e8), round(Int64,pz*1e8))
     # face centroid → list of face ids
@@ -445,12 +492,9 @@ function _build_faces(elems, bases, x, y, z, Jm, J)
         nodes=_face_nodes(e,side); nf=length(nodes)
         A=zeros(3,nf); coef=zeros(nf)
         dir=(side+1)÷2; sgn = isodd(side) ? -1.0 : 1.0
-        t1,t2 = dir==1 ? (2,3) : (dir==2 ? (3,1) : (1,2))         # right-handed: t1×t2 ∥ +dir
         b=bases[e.p[dir]]; wf = isodd(side) ? b.w[1] : b.w[end]
         for (q,n) in enumerate(nodes)
-            u=(Jm[1,t1,n],Jm[2,t1,n],Jm[3,t1,n]); v=(Jm[1,t2,n],Jm[2,t2,n],Jm[3,t2,n])
-            c=(u[2]*v[3]-u[3]*v[2], u[3]*v[1]-u[1]*v[3], u[1]*v[2]-u[2]*v[1])
-            A[1,q]=sgn*c[1]; A[2,q]=sgn*c[2]; A[3,q]=sgn*c[3]
+            A[1,q]=sgn*Ja[dir,1,n]; A[2,q]=sgn*Ja[dir,2,n]; A[3,q]=sgn*Ja[dir,3,n]     # outward area vector = ±J∇ξ^dir
             coef[q]=1/(J[n]*wf)
         end
         cx=sum(x[nodes])/nf; cy=sum(y[nodes])/nf; cz=sum(z[nodes])/nf
@@ -491,6 +535,57 @@ end
     return fx,fy,fz,q
 end
 
+# SPLIT-FORM (flux-differencing) volume term, Gassner–Winters–Kopriva 2016 on curved elements:
+#   ∂_t(J u)_i = −Σ_b Σ_l 2 D^b_{il} F̃^b_#(u_i,u_l),   F̃^b_#(i,l) = Σ_a ½(Ja^b_a,i + Ja^b_a,l) F^{#,a}(u_i,u_l),
+# with the Kennedy–Gruber-type two-point flux for the Valencia system (products of averages):
+#   F^{#,a}_D = {D̃}{αv^a},  F^{#,a}_{S_j} = {S̃_j}{αv^a} + {α√γp} δ^a_j,  F^{#,a}_τ = {τ̃+√γp}{αv^a}.
+# F^#(u,u) = F(u); for a uniform state the curl-form metric identity makes the term vanish
+# exactly; the skew-symmetric split removes the aliasing of the quadratic products that
+# destabilizes the chain-rule strong form on curved elements (the quadrupolar grid mode of
+# VALIDATION.md §7.10).
+function _volume_split!(rhs, st::DGBall3DState, eng::DGBall3DEngine)
+    Ntot=eng.Ntot; Γ=eng.Γ
+    B=eng_splitbuf(eng); Vx=B[1]; Vy=B[2]; Vz=B[3]; P=B[4]; E=B[5]
+    Threads.@threads for n in 1:Ntot
+        @inbounds begin
+            α=eng.α[n]; sg=eng.sqrtγ[n]
+            Vx[n]=α*st.vx[n]; Vy[n]=α*st.vy[n]; Vz[n]=α*st.vz[n]
+            P[n]=α*sg*st.p[n]; E[n]=st.τ[n]+sg*st.p[n]
+        end
+    end
+    Threads.@threads for e in eng.elems
+        @inbounds begin
+            bs=(eng.bases[e.p[1]],eng.bases[e.p[2]],eng.bases[e.p[3]]); N1,N2,N3=e.N
+            for k in 1:N3, j in 1:N2, i in 1:N1
+                n=nidx(e,i,j,k); Jn=eng.J[n]
+                aD=0.0; aSx=0.0; aSy=0.0; aSz=0.0; aτ=0.0
+                for b in 1:3
+                    Nb = b==1 ? N1 : (b==2 ? N2 : N3); Dm=bs[b].D; ib = b==1 ? i : (b==2 ? j : k)
+                    for l in 1:Nb
+                        m = b==1 ? nidx(e,l,j,k) : (b==2 ? nidx(e,i,l,k) : nidx(e,i,j,l))
+                        d=2*Dm[ib,l]; d==0.0 && continue
+                        J1=0.5*(eng.Ja[b,1,n]+eng.Ja[b,1,m]); J2=0.5*(eng.Ja[b,2,n]+eng.Ja[b,2,m]); J3=0.5*(eng.Ja[b,3,n]+eng.Ja[b,3,m])
+                        JV=J1*0.5*(Vx[n]+Vx[m])+J2*0.5*(Vy[n]+Vy[m])+J3*0.5*(Vz[n]+Vz[m])
+                        Pm=0.5*(P[n]+P[m])
+                        aD +=d*0.5*(st.D[n]+st.D[m])*JV
+                        aSx+=d*(0.5*(st.Sx[n]+st.Sx[m])*JV+Pm*J1)
+                        aSy+=d*(0.5*(st.Sy[n]+st.Sy[m])*JV+Pm*J2)
+                        aSz+=d*(0.5*(st.Sz[n]+st.Sz[m])*JV+Pm*J3)
+                        aτ +=d*0.5*(E[n]+E[m])*JV
+                    end
+                end
+                rhs[1][n]=-aD/Jn; rhs[2][n]=-aSx/Jn; rhs[3][n]=-aSy/Jn; rhs[4][n]=-aSz/Jn; rhs[5][n]=-aτ/Jn
+            end
+        end
+    end
+end
+const _SPLITBUF = Dict{UInt,NTuple{5,Vector{Float64}}}()
+function eng_splitbuf(eng::DGBall3DEngine)
+    k=objectid(eng)
+    haskey(_SPLITBUF,k) || (_SPLITBUF[k]=ntuple(_->zeros(eng.Ntot),5))
+    _SPLITBUF[k]
+end
+
 function _raw_rhs!(rD,rSx,rSy,rSz,rτ, st::DGBall3DState, eng::DGBall3DEngine)
     Ntot=eng.Ntot; Γ=eng.Γ
     # nodal fluxes (stored: 3 directions × 5 variables)
@@ -502,21 +597,25 @@ function _raw_rhs!(rD,rSx,rSy,rSz,rτ, st::DGBall3DState, eng::DGBall3DEngine)
         end
     end
     rhs=(rD,rSx,rSy,rSz,rτ)
-    # volume term: −Σ_b Σ_a Ji[b,a] (D^b F^a)
-    Threads.@threads for e in eng.elems
-        @inbounds begin
-            bs=(eng.bases[e.p[1]],eng.bases[e.p[2]],eng.bases[e.p[3]]); N1,N2,N3=e.N
-            for k in 1:N3, j in 1:N2, i in 1:N1
-                n=nidx(e,i,j,k)
-                for c in 1:5
-                    acc=0.0
-                    for a in 1:3
-                        d1=0.0; for l in 1:N1; d1+=bs[1].D[i,l]*F[c,a,nidx(e,l,j,k)]; end
-                        d2=0.0; for l in 1:N2; d2+=bs[2].D[j,l]*F[c,a,nidx(e,i,l,k)]; end
-                        d3=0.0; for l in 1:N3; d3+=bs[3].D[k,l]*F[c,a,nidx(e,i,j,l)]; end
-                        acc+=eng.Ji[1,a,n]*d1+eng.Ji[2,a,n]*d2+eng.Ji[3,a,n]*d3
+    if eng.volume == :split
+        _volume_split!(rhs, st, eng)
+    else
+        # chain-rule strong form: −Σ_b Σ_a Ji[b,a] (D^b F^a)
+        Threads.@threads for e in eng.elems
+            @inbounds begin
+                bs=(eng.bases[e.p[1]],eng.bases[e.p[2]],eng.bases[e.p[3]]); N1,N2,N3=e.N
+                for k in 1:N3, j in 1:N2, i in 1:N1
+                    n=nidx(e,i,j,k)
+                    for c in 1:5
+                        acc=0.0
+                        for a in 1:3
+                            d1=0.0; for l in 1:N1; d1+=bs[1].D[i,l]*F[c,a,nidx(e,l,j,k)]; end
+                            d2=0.0; for l in 1:N2; d2+=bs[2].D[j,l]*F[c,a,nidx(e,i,l,k)]; end
+                            d3=0.0; for l in 1:N3; d3+=bs[3].D[k,l]*F[c,a,nidx(e,i,j,l)]; end
+                            acc+=eng.Ji[1,a,n]*d1+eng.Ji[2,a,n]*d2+eng.Ji[3,a,n]*d3
+                        end
+                        rhs[c][n]=-acc
                     end
-                    rhs[c][n]=-acc
                 end
             end
         end
@@ -757,6 +856,17 @@ function dgball3d_static_residual(st::DGBall3DState, eng::DGBall3DEngine)
         out[e.region]=w
     end
     out
+end
+"""max over nodes and components of |Σ_b D^b (Ja^b_a)| relative to max|Ja| — the discrete metric identity."""
+function dgball3d_metric_identity(eng::DGBall3DEngine)
+    worst=0.0; scale=maximum(abs, eng.Ja)
+    for e in eng.elems, a in 1:3
+        N1,N2,N3=e.N; blk=[zeros(N1,N2,N3) for _ in 1:3]
+        for k in 1:N3, j in 1:N2, i in 1:N1, b in 1:3; blk[b][i,j,k]=eng.Ja[b,a,nidx(e,i,j,k)]; end
+        div=_dline(blk[1],e,1,eng.bases) .+ _dline(blk[2],e,2,eng.bases) .+ _dline(blk[3],e,3,eng.bases)
+        worst=max(worst, maximum(abs, div))
+    end
+    worst/scale
 end
 """max |rhs| over all nodes and variables (for the free-stream test)."""
 function dgball3d_rhs_norm(st::DGBall3DState, eng::DGBall3DEngine)
