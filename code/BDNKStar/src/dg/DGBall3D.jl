@@ -44,10 +44,14 @@
     Without the filter every seeded run grows an instability with e-fold 250 M⊙.
     REFINEMENT DOES NOT YET PAY: at nt=3 (or nt=2, p_t=5) a spurious quadrupolar
     grid mode grows after the seeded transient (e-fold 190–310 M⊙) and saturates
-    at q20/q00 ≈ 7%, with or without the subtraction; the static momentum residual
-    is 2–5% of gravity (the geometric error of a cubic interpolant of a 45° patch,
-    0.4% at p_t=5). The chain-rule strong form is the suspect; a split-form or
-    over-integrated volume term is the next step.
+    at q20/q00 ≈ 7%, with or without the subtraction. The INTERIOR-ONLY test
+    (interior_only=true, boundary=:tov — SpECTRE's regression setup) isolates it:
+    with no surface, atmosphere or limiter, the unfiltered chain-rule scheme is
+    unstable on the smooth interior (err(ρ) ×10 per 400 M⊙, independent of CFL and
+    flux), the momentum filter stabilizes it and gives err(ρ) 3.2e-4 (p=3) →
+    5.1e-5 (p=4) at t=500, the split form makes it worse (VALIDATION.md §7.11).
+    So the filter is part of the volume scheme, not a surface fix; SpECTRE's
+    production answer is a top-mode filter plus DG–FD subcells.
 =#
 module DGBall3D
 
@@ -134,8 +138,19 @@ degree 2 (the I2 configuration of the 1D study), `:linear` → 10 shells of h=R/
 Each wedge is split `nt`×`nt` tangentially with degree `p_t`; the cube `nt`³ with degree `p_t`.
 """
 function ball_grid(R::Float64; nt::Int=2, p_t::Int=3, p_int::Int=3, p_surf::Int=2, p_ext::Int=3,
-                   surface::Symbol=:quadratic, xmax_fac::Float64=3.0, n_ext::Int=5)
+                   surface::Symbol=:quadratic, xmax_fac::Float64=3.0, n_ext::Int=5,
+                   interior_only::Bool=false, rmax_int_fac::Float64=0.85, n_int::Int=4)
     s = R/8.125
+    if interior_only
+        # SpECTRE's TovStar regression domain: a filled ball that stays INSIDE the star (no surface),
+        # with the analytic TOV solution as Dirichlet data on the outer boundary (boundary=:tov)
+        rmax = rmax_int_fac*R
+        center = [(1.3s, 1.9s, 0.55, 0.85), (1.9s, 2.5s, 0.85, 1.0)]
+        ib = collect(range(2.5s, rmax; length=n_int+1))
+        interior = [(ib[i], ib[i+1]) for i in 1:n_int]
+        return (cube=(1.3s, 0.55), center=center, interior=interior, surface=Tuple{Float64,Float64}[], exterior=Tuple{Float64,Float64}[],
+                nt=nt, p_t=p_t, p_int=p_int, p_surf=p_surf, p_ext=p_ext)
+    end
     if surface == :quadratic
         h = R/16; rin = R-h; rout = R+4h; nsurf = 5
     else
@@ -190,7 +205,7 @@ struct DGBall3DEngine
     ρ_atm::Float64; ρ_cut::Float64; ε_atm::Float64; p_atm::Float64; εfac_max::Float64
     flux::Symbol; limiter::Symbol; limit_regions::Vector{Symbol}
     filter::Symbol; filt_vars::Symbol; filt_α::Float64; filt_s_center::Int; filt_s_shell::Int
-    wellbalanced::Bool; entropy_floor::Bool; volume::Symbol
+    wellbalanced::Bool; entropy_floor::Bool; volume::Symbol; boundary::Symbol
     cfl::Float64; dxmin::Float64
     # node geometry
     x::Vector{Float64}; y::Vector{Float64}; z::Vector{Float64}; r::Vector{Float64}
@@ -325,7 +340,7 @@ end
     setup_dgball3d(eos, εc; grid=ball_grid(R), Γ=2.0, κ=eos.κ, atm_fac=1e-13, cut_fac=10.0,
                    εfac_max=100.0, flux=:hll, limiter=:wb, limit_regions=[:surface],
                    filter=:all, filt_vars=:momentum, filt_α=36.0, filt_s_center=6, filt_s_shell=12,
-                   wellbalanced=true, entropy_floor=true, volume=:chain, cfl=0.25,
+                   wellbalanced=true, entropy_floor=true, volume=:chain, boundary=:atmosphere, cfl=0.25,
                    h_tov=2e-4, grid_kwargs...) -> (engine, state)
 
 Build the cubed-sphere DG star. `grid` is a `ball_grid` NamedTuple (or pass its keyword
@@ -353,7 +368,7 @@ function setup_dgball3d(eos::BarotropicEOS, εc::Float64; grid=nothing, Γ::Floa
         εfac_max::Float64=100.0, flux::Symbol=:hll, limiter::Symbol=:wb, limit_regions::Vector{Symbol}=[:surface],
         filter::Symbol=:all, filt_vars::Symbol=:momentum, filt_α::Float64=36.0, filt_s_center::Int=6, filt_s_shell::Int=12,
         wellbalanced::Bool=true, entropy_floor::Bool=true,
-        volume::Symbol=:chain, cfl::Float64=0.25, h_tov::Float64=2e-4, grid_kwargs...)
+        volume::Symbol=:chain, boundary::Symbol=:atmosphere, cfl::Float64=0.25, h_tov::Float64=2e-4, grid_kwargs...)
     star=solve_tov(eos,εc;h=h_tov); R,M=star.R,star.M
     g = grid === nothing ? ball_grid(R; grid_kwargs...) : grid
     elems,Ntot=_build_elems(g); K=length(elems)
@@ -426,7 +441,7 @@ function setup_dgball3d(eos::BarotropicEOS, εc::Float64; grid=nothing, Γ::Floa
     end
     Seq=(zeros(Ntot),zeros(Ntot),zeros(Ntot),zeros(Ntot),zeros(Ntot))
     eng=DGBall3DEngine(elems,faces,neigh,bases,K,Ntot,Γ,κ,eos,R,M,ρ_atm,cut_fac*ρ_atm,ε_atm,p_atm,εfac_max,
-                       flux,limiter,limit_regions,filter,filt_vars,filt_α,filt_s_center,filt_s_shell,wellbalanced,entropy_floor,volume,cfl,dxmin,
+                       flux,limiter,limit_regions,filter,filt_vars,filt_α,filt_s_center,filt_s_shell,wellbalanced,entropy_floor,volume,boundary,cfl,dxmin,
                        x,y,z,r,J,Ji,Ja,wq,α,elam,sqrtγ,nx,ny,nz,Φp,λp,gor,origin,
                        copy(st.D),copy(st.Sx),copy(st.Sy),copy(st.Sz),copy(st.τ),Seq)
     wellbalanced && _raw_rhs!(Seq..., st, eng)
@@ -632,7 +647,11 @@ function _raw_rhs!(rD,rSx,rSy,rSz,rτ, st::DGBall3DState, eng::DGBall3DEngine)
             m=fc.partner[q]
             fxL,fyL,fzL,qL=_fluxes(eng,n,st.ρ[n],st.ε[n],st.vx[n],st.vy[n],st.vz[n])
             λmL,λpL=_speeds(Γ,st.ρ[n],st.ε[n],st.vx[n],st.vy[n],st.vz[n],eng.elam[n],eng.nx[n],eng.ny[n],eng.nz[n],eng.α[n],mx,my,mz)
-            if m==0      # outer boundary: atmosphere at rest (outflow)
+            if m==0 && eng.boundary==:tov      # Dirichlet: the analytic TOV state (its equilibrium primitives at this node)
+                ρb=eng.Deq[n]/eng.sqrtγ[n]; εb=_εpoly(eng.κ,Γ,ρb)
+                fxR,fyR,fzR,qR=_fluxes(eng,n,ρb,εb,0.0,0.0,0.0)
+                λmR,λpR=_speeds(Γ,ρb,εb,0.0,0.0,0.0,eng.elam[n],eng.nx[n],eng.ny[n],eng.nz[n],eng.α[n],mx,my,mz)
+            elseif m==0  # outer boundary: atmosphere at rest (outflow)
                 fxR,fyR,fzR,qR=_fluxes(eng,n,eng.ρ_atm,eng.ε_atm,0.0,0.0,0.0)
                 λmR,λpR=_speeds(Γ,eng.ρ_atm,eng.ε_atm,0.0,0.0,0.0,eng.elam[n],eng.nx[n],eng.ny[n],eng.nz[n],eng.α[n],mx,my,mz)
             else
@@ -783,6 +802,12 @@ function _refslope(eng::DGBall3DEngine, U, e::BallElem, b::Int)
     sqrt(1.5)*s/4                                   # du/dξ_b of the linear mode, averaged over the other directions
 end
 @inline _mm3(a,b,c) = (sign(a)==sign(b)==sign(c)) ? sign(a)*min(abs(a),abs(b),abs(c)) : 0.0
+# physical extent of an element along reference direction b (distance between the mid-face points)
+function _extent(eng::DGBall3DEngine, e::BallElem, b::Int)
+    N1,N2,N3=e.N; c1=(N1+1)÷2; c2=(N2+1)÷2; c3=(N3+1)÷2
+    i1,i2 = b==1 ? (nidx(e,1,c2,c3), nidx(e,N1,c2,c3)) : (b==2 ? (nidx(e,c1,1,c3), nidx(e,c1,N2,c3)) : (nidx(e,c1,c2,1), nidx(e,c1,c2,N3)))
+    hypot(eng.x[i1]-eng.x[i2], eng.y[i1]-eng.y[i2], eng.z[i1]-eng.z[i2])
+end
 function _physical3(st::DGBall3DState, eng::DGBall3DEngine, e::BallElem)
     @inbounds for q in 1:nnodes(e)
         n=e.off+q-1; sg=eng.sqrtγ[n]; D̂=st.D[n]/sg; τ̂=st.τ[n]/sg
@@ -803,8 +828,13 @@ function _limit_minmod3d_elem!(st::DGBall3DState, eng::DGBall3DEngine, ke::Int)
         for b in 1:3
             a1=_refslope(eng,U,e,b)
             em=eng.neigh[2b-1,ke]; ep=eng.neigh[2b,ke]
+            # SpECTRE's effective_difference_to_neighbor: divide by ½(1 + h_neighbour/h_self) so that a
+            # linear profile across an element-size jump is not read as a kink (sizes = the physical
+            # extent along the direction, taken from the element's node coordinates)
+            hs=_extent(eng,e,b)
             ūm = em==0 ? ū : _refmean(eng,U,eng.elems[em]); ūp = ep==0 ? ū : _refmean(eng,U,eng.elems[ep])
-            a[b]=_mm3(a1, ūp-ū, ū-ūm); a[b] != a1 && (changed=true)
+            fm = em==0 ? 1.0 : 0.5*(1+_extent(eng,eng.elems[em],b)/hs); fp = ep==0 ? 1.0 : 0.5*(1+_extent(eng,eng.elems[ep],b)/hs)
+            a[b]=_mm3(a1, (ūp-ū)/fp, (ū-ūm)/fm); a[b] != a1 && (changed=true)
         end
         if changed
             @inbounds for k in 1:e.N[3], j in 1:e.N[2], i in 1:e.N[1]
@@ -908,7 +938,7 @@ end
 function dgball3d_static_residual(st::DGBall3DState, eng::DGBall3DEngine)
     r=(zeros(eng.Ntot),zeros(eng.Ntot),zeros(eng.Ntot),zeros(eng.Ntot),zeros(eng.Ntot))
     _raw_rhs!(r..., st, eng)
-    ρc=dgball3d_central_density(st,eng); out=Dict{Symbol,Float64}()
+    ρc=dgball3d_central_density(st,eng); out=Dict{Symbol,Float64}(:cube=>0.0,:center=>0.0,:interior=>0.0,:surface=>0.0,:exterior=>0.0)
     for e in eng.elems
         w=get(out,e.region,0.0)
         for q in 1:nnodes(e)

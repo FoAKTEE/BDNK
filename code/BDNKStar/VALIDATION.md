@@ -731,6 +731,67 @@ behaviour; at coarse resolution it reproduces the paper's static settling and gi
 and f to ±2%; it is not yet a refinable precision tool, and the obstacle has been localized to
 the star–atmosphere interface on the curved surface shells, not to the volume discretization.
 
+### 7.11 The 3+1D Cowling validation against SpECTRE (2026-09-18)
+
+SpECTRE (sxs-collaboration/spectre, `develop` at 00f341c) is the open successor of the code
+used in the paper; it could not be run here (no container runtime or CMake on this machine, and
+3.7 GB of free disk against a build that needs tens), so the comparison is against its
+regression setup, its published results and its source.
+
+**What SpECTRE's own Cowling TOV test is.** `tests/InputFiles/GrMhd/ValenciaDivClean/TovStar.yaml`
+evolves our star (K=100, Γ=2, ρ_c=1.28×10⁻³, isotropic coordinates) on a filled sphere of
+inner radius 3 and **outer radius 7 — inside the star** (isotropic R = 8.125), with the analytic
+TOV solution as Dirichlet boundary data: "these domains are chosen so that we only need to
+simulate the interior of the star, avoiding the surface discontinuity". Strong-inertial
+(chain-rule) DG formulation, Gauss–Lobatto, 5 points per element, RK3 SSP with a CFL safety
+factor of 0.5, no filter, DG–FD subcell fallback armed but idle on a smooth interior, an
+atmosphere at ρ_atm = 10⁻¹⁵ with cutoff 1.1×10⁻¹⁵, Kastaun inversion, and velocity and entropy
+("kappa") limiting near the atmosphere; observed: L2 errors of ρ, ε, v, p against the analytic
+solution. The CI run lasts three slabs. The full-star Cowling evolutions of Deppe et al. 2021
+(arXiv:2109.12033, Sec. IV.7: [−20,20]³, 6/12/24 P5 elements, ρ_atm 10⁻¹⁵, cutoff 1.01×10⁻¹⁵)
+use the DG–finite-difference hybrid; of the classical DG limiters they tried on that star,
+ΛΠ^N "falls back to the linear approximation", Krivodonova "succeeded at some resolutions (3 of
+16 attempted runs)", HWENO and simple WENO were stable only at P2, and "the only limiting
+strategy we can endorse is a discontinuous Galerkin–finite-difference hybrid method". Their
+GH+MHD full-star inputs run with `AlwaysUseSubcells: true` — finite differences everywhere —
+and a `Hypercube` exponential filter with half-power 64, i.e. c_i → c_i exp[−36 (i/N)^{128}]:
+the top mode only. The 2018 paper's s = 6/12 filters are far stronger. Their `Minmod` acts in
+element-logical coordinates, is non-conservative on deformed elements (documented), and divides
+the neighbour-mean differences by ½(1 + h_neighbour/h_self); that factor is now in ours too.
+
+**Their interior-only setup in our engine** (`ball_grid(…; interior_only=true, rmax_int_fac=0.85)`,
+`boundary=:tov`, no subtraction, no limiter; nt=2, 152 elements, degree p in every direction;
+errors are the point-wise L2 norms SpECTRE observes; `repro/data/dgball3d_spectre_interior*.{csv,txt}`):
+
+| p | filter | err(ρ) t=100 | t=300 | t=500 | ρ_c/ρ_c0 − 1 at 500 |
+|---|---|---|---|---|---|
+| 2 | none | 4.6×10⁻² | blow-up | | |
+| 3 | none | 1.5×10⁻³ | 4.8×10⁻³ | 1.6×10⁻² | −1.2×10⁻² (e-fold ≈ 170 M⊙) |
+| 4 | none | 8.8×10⁻⁴ | 4.0×10⁻³ | blow-up | |
+| 3 | none, CFL halved | identical to the unfiltered p=3 row | | | |
+| 3 | none, LLF instead of HLL | identical to the unfiltered p=3 row | | | |
+| 3 | none, split form | 5.3×10⁻² | 1.0×10⁻¹ | 1.1×10⁻¹ | −0.26 |
+| 3 | none, residual subtraction | 6×10⁻¹⁵ | 2×10⁻¹⁴ | 4×10⁻¹⁴ | fixed point (nothing seeds it) |
+| 2 | momentum, s=6/12 | 1.2×10⁻² | 2.3×10⁻² | 3.6×10⁻² | −2.2×10⁻² (still growing) |
+| 3 | momentum, s=6/12 | 2.3×10⁻⁴ | 2.7×10⁻⁴ | 3.2×10⁻⁴ | −1.5×10⁻⁴ |
+| 4 | momentum, s=6/12 | 3.8×10⁻⁵ | 4.2×10⁻⁵ | 5.1×10⁻⁵ | −8.4×10⁻⁶ |
+| 3 | all variables, s=6/12 | 1.7×10⁻⁴ | 1.9×10⁻⁴ | 2.0×10⁻⁴ | −1.3×10⁻⁴ |
+| 3 | momentum, with subtraction | 6×10⁻¹⁶ | 6×10⁻¹⁶ | 6×10⁻¹⁶ | 0 |
+
+**Reading.** With no surface, no atmosphere and no limiter in play, the unfiltered chain-rule
+scheme is still unstable on the smooth star interior, with the same e-folding time as the
+full-star runs (≈ 170–250 M⊙), independent of the Courant number and of the Riemann solver. The
+instability of §7.10 is therefore a property of the volume scheme on the curved elements — the
+paper's "numerical instability in S̃_i caused by aliasing", now isolated — and the surface
+shells were where it showed first, not where it comes from. The paper's momentum filter is the
+cure here too: with it the interior error is 3.2×10⁻⁴ at p=3 and 5.1×10⁻⁵ at p=4 after 500 M⊙,
+a factor six per degree, which is the spectral convergence SpECTRE's interior test is built to
+show; at p=2 the same filter is too weak to hold the scheme. The split-form volume term makes
+the unfiltered instability worse, not better. SpECTRE's three-slab regression run cannot see a
+170 M⊙ instability; its production configuration removes the top mode every step and hands
+troubled elements to finite differences, which is the direction any further work on the
+nonlinear 3D star should take.
+
 ---
 
 *Generated as part of the pre-publication audit. Suite state and all tabulated numbers
