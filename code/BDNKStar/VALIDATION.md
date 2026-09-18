@@ -792,6 +792,29 @@ the unfiltered instability worse, not better. SpECTRE's three-slab regression ru
 troubled elements to finite differences, which is the direction any further work on the
 nonlinear 3D star should take.
 
+**The paper's Sec. VI.B protocol, literally** (`repro/data/dgball3d_hkt_series_B1_unseeded_nt6_p3.csv`,
+figure `paper/figs/dgball3d_b1.png`, analysis `repro/dgball3d_b1_analysis.py`): their B1 grid
+structure (nt=6, 5400 elements, 276 480 nodes, Δt = 0.08), linear surface shells with the
+per-direction minmod, the momentum filter with s=6 in the centre and s=12 in the shells, no
+subtraction, **unseeded** — the settling transient is the only excitation, as in their Figs. 15–16.
+Ours does not settle: err[D̃] rises from 9×10⁻⁴ (t∈[0,200]) through 2.1×10⁻³, 5.7×10⁻³ and
+1.5×10⁻² to 2.2×10⁻² at [800,1000] while the ρ_c oscillation amplitude grows 2.5×10⁻³ → 6×10⁻³ →
+1.8×10⁻² → 4.4×10⁻² → 5.7×10⁻² (e-fold ≈ 200 M⊙), the atmosphere reaches 0.9c after t ≈ 800, M_b
+drifts +2.7×10⁻³, and the run blows up at t ≈ 950; the pre-blow-up spectrum is dominated by a
+4.38 kHz line (H₁ −3.7%) with F at 2.694 (+0.3%) weak. Their B1: err[D̃] ≈ 6×10⁻⁴, ρ_c settling at
++2.5×10⁻⁴, M_b error 10⁻⁴, stable to 10⁴ M⊙, F and H₁ sharp. **The validation of Sec. VI.B is not
+reproduced.** Together with §7.11's interior result (the filtered interior converges) and
+§7.10's localization, the failure sits at the star–atmosphere interface: linear radial shells on
+which the s=6/12 momentum filter annihilates the radial slope of the momentum deviation every
+step and the minmod acts on reference-coordinate means, driven from a surface whose density
+cut sits nine orders of magnitude below the last stellar node. The ingredients of their setup
+not reproduced here are the isotropic coordinates, the surface inside a shell rather than on a
+boundary, the exact inversion-fixing recipe, and a Courant number of 0.18 against our 0.25;
+none of these changed the instability in the variants tried (§7.10). SpECTRE, the successor
+code, no longer evolves a DG star surface at all: its Cowling test excludes the surface and its
+full-star runs use finite-difference subcells. That is the state of the art and it is where a
+nonlinear 3D star for this project would have to go.
+
 ---
 
 *Generated as part of the pre-publication audit. Suite state and all tabulated numbers
