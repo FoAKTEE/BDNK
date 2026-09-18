@@ -113,6 +113,22 @@ using BDNKStar.DGBall3D: nidx, nnodes, _p2c, _εpoly, _p_ig, _raw_rhs!
         @test maximum(abs.(res[:filter].q22)) < 1e-6 * maximum(abs.(res[:filter].q20))
     end
 
+    @testset "the paper's surface recipe: linear surface shells with the 3D minmod limiter" begin
+        eng6, st6 = setup_dgball3d(eos, εc; nt=2, p_t=3, p_int=3, p_surf=1, p_ext=3, surface=:linear, limiter=:minmod, wellbalanced=false)
+        @test all(e -> e.p[1] == 1, filter(e -> e.region == :surface, eng6.elems))
+        @test count(==(0), eng6.neigh) == 6*eng6.K - count(!=(0), eng6.neigh) && count(==(0), eng6.neigh) > 0   # outer boundary sides exist
+        # every interior side points to an element that points back
+        ok = true
+        for ke in 1:eng6.K, side in 1:6
+            m = eng6.neigh[side, ke]; m == 0 && continue
+            ok &= any(eng6.neigh[:, m] .== ke)
+        end
+        @test ok
+        rec = evolve_dgball3d!(st6, eng6; tmax=30.0, sample_dt=15.0)
+        @test all(isfinite, rec.errD) && rec.errD[end] < 1e-2                  # measured 1.3e-3 at t=100
+        @test abs(rec.Mb[end]/rec.Mb[1] - 1) < 1e-3                             # reference-mean minmod: ~1e-4 (the paper's level)
+    end
+
     @testset "static star without the subtraction settles (the paper's regime)" begin
         eng3, st3 = setup_dgball3d(eos, εc; nt=2, p_t=3, p_int=3, p_surf=2, p_ext=3, wellbalanced=false, limiter=:wb)
         res = dgball3d_static_residual(st3, eng3)

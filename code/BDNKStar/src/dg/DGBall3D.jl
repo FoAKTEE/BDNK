@@ -27,8 +27,9 @@
         entropy bound), atmosphere fixing after Galeazzi et al. 2013 (ρ_atm = 10⁻¹³ρ_c,
         κρ^(Γ−1)/(Γ−1) ≤ ε ≤ 100×), HLL (Davis) or LLF flux, SSP-RK3;
       • limiter :wb (the equilibrium-preserving positivity scaling of DGCart3D /
-        VALIDATION.md §7.8, J-weighted means) on the surface shells, :none, or the
-        mean-based :mean; optional exponential modal filter on the deviation from
+        VALIDATION.md §7.8, J-weighted means) on the surface shells, :minmod (the
+        paper's per-direction ΛΠ¹ slope limiter with the physical-state check, for
+        linear surface shells), :none, or the mean-based :mean; optional exponential modal filter on the deviation from
         equilibrium; optional static-residual subtraction (exact fixed point; a fake force
         of the size of the raw residual once the surface moves — VALIDATION.md §7.9).
     Diagnostics: err[D̃], ρ_c (origin), M_b, the real spherical-harmonic moments
@@ -180,6 +181,7 @@ end
 struct DGBall3DEngine
     elems::Vector{BallElem}
     faces::Vector{BallFace}
+    neigh::Matrix{Int}                    # neigh[side, elem] = neighbour element across that side (0 = outer boundary)
     bases::Dict{Int,LGLBasis}
     K::Int; Ntot::Int
     Γ::Float64; κ::Float64
@@ -391,7 +393,7 @@ function setup_dgball3d(eos::BarotropicEOS, εc::Float64; grid=nothing, Γ::Floa
     # ---- contravariant metric vectors in the curl form (Kopriva 2006): Σ_b D^b Ja^b_a = 0 discretely
     Ja=_curl_metrics(elems,bases,coords,Jm,Ntot)
     # ---- faces: area vectors (= ±Ja^b at the face), coefficients, geometric matching
-    faces=_build_faces(elems,bases,x,y,z,Ja,J)
+    faces,neigh=_build_faces(elems,bases,x,y,z,Ja,J)
     # ---- Cowling metric at the nodes (areal Cartesian coordinates)
     rt=star.r; mt=star.m; νt=star.ν; pt=star.p; et=star.ε
     m_of(rr)= rr<R ? _lin(rt,mt,rr) : M
@@ -423,7 +425,7 @@ function setup_dgball3d(eos::BarotropicEOS, εc::Float64; grid=nothing, Γ::Floa
         st.D[n]=sg*D̂; st.Sx[n]=sg*Ŝx; st.Sy[n]=sg*Ŝy; st.Sz[n]=sg*Ŝz; st.τ[n]=sg*τ̂
     end
     Seq=(zeros(Ntot),zeros(Ntot),zeros(Ntot),zeros(Ntot),zeros(Ntot))
-    eng=DGBall3DEngine(elems,faces,bases,K,Ntot,Γ,κ,eos,R,M,ρ_atm,cut_fac*ρ_atm,ε_atm,p_atm,εfac_max,
+    eng=DGBall3DEngine(elems,faces,neigh,bases,K,Ntot,Γ,κ,eos,R,M,ρ_atm,cut_fac*ρ_atm,ε_atm,p_atm,εfac_max,
                        flux,limiter,limit_regions,filter,filt_vars,filt_α,filt_s_center,filt_s_shell,wellbalanced,entropy_floor,volume,cfl,dxmin,
                        x,y,z,r,J,Ji,Ja,wq,α,elam,sqrtγ,nx,ny,nz,Φp,λp,gor,origin,
                        copy(st.D),copy(st.Sx),copy(st.Sy),copy(st.Sz),copy(st.τ),Seq)
@@ -502,10 +504,12 @@ function _build_faces(elems, bases, x, y, z, Ja, J)
         push!(get!(cent, key(cx,cy,cz), Int[]), length(faces))
     end
     # partner faces: same centroid; then node ↔ node by position
+    neigh=zeros(Int,6,length(elems))
     for (_,ids) in cent
         length(ids) ≤ 2 || error("face shared by $(length(ids)) elements — grid is not conforming")
         length(ids) == 1 && continue                     # outer boundary face
         fa,fb=faces[ids[1]],faces[ids[2]]
+        neigh[fa.side,fa.elem]=fb.elem; neigh[fb.side,fb.elem]=fa.elem
         pos=Dict{NTuple{3,Int64},Int}()
         for n in fb.nodes; pos[key(x[n],y[n],z[n])]=n; end
         for (q,n) in enumerate(fa.nodes)
@@ -516,7 +520,7 @@ function _build_faces(elems, bases, x, y, z, Ja, J)
         for n in fa.nodes; pos[key(x[n],y[n],z[n])]=n; end
         for (q,n) in enumerate(fb.nodes); fb.partner[q]=pos[key(x[n],y[n],z[n])]; end
     end
-    return faces
+    return faces, neigh
 end
 
 # ----------------------------------------------------------------------------------
@@ -761,12 +765,72 @@ function _limit_mean_elem!(st::DGBall3DState, eng::DGBall3DEngine, e::BallElem)
     end
     return 2
 end
+# reference-coordinate mean and the linear-mode slope along direction b (exact modal coefficient)
+function _refmean(eng::DGBall3DEngine, U, e::BallElem)
+    bs=(eng.bases[e.p[1]],eng.bases[e.p[2]],eng.bases[e.p[3]]); s=0.0
+    @inbounds for k in 1:e.N[3], j in 1:e.N[2], i in 1:e.N[1]; s+=bs[1].w[i]*bs[2].w[j]*bs[3].w[k]*U[nidx(e,i,j,k)]; end
+    s/8
+end
+function _refslope(eng::DGBall3DEngine, U, e::BallElem, b::Int)
+    bs=(eng.bases[e.p[1]],eng.bases[e.p[2]],eng.bases[e.p[3]]); N1,N2,N3=e.N; s=0.0
+    @inbounds if b==1
+        for k in 1:N3, j in 1:N2; c=0.0; for i in 1:N1; c+=bs[1].invV[2,i]*U[nidx(e,i,j,k)]; end; s+=bs[2].w[j]*bs[3].w[k]*c; end
+    elseif b==2
+        for k in 1:N3, i in 1:N1; c=0.0; for j in 1:N2; c+=bs[2].invV[2,j]*U[nidx(e,i,j,k)]; end; s+=bs[1].w[i]*bs[3].w[k]*c; end
+    else
+        for j in 1:N2, i in 1:N1; c=0.0; for k in 1:N3; c+=bs[3].invV[2,k]*U[nidx(e,i,j,k)]; end; s+=bs[1].w[i]*bs[2].w[j]*c; end
+    end
+    sqrt(1.5)*s/4                                   # du/dξ_b of the linear mode, averaged over the other directions
+end
+@inline _mm3(a,b,c) = (sign(a)==sign(b)==sign(c)) ? sign(a)*min(abs(a),abs(b),abs(c)) : 0.0
+function _physical3(st::DGBall3DState, eng::DGBall3DEngine, e::BallElem)
+    @inbounds for q in 1:nnodes(e)
+        n=e.off+q-1; sg=eng.sqrtγ[n]; D̂=st.D[n]/sg; τ̂=st.τ[n]/sg
+        ux,uy,uz=_raise(eng.elam[n],eng.nx[n],eng.ny[n],eng.nz[n],st.Sx[n],st.Sy[n],st.Sz[n]); S2=(st.Sx[n]*ux+st.Sy[n]*uy+st.Sz[n]*uz)/sg^2
+        (D̂ ≥ (1-1e-8)*eng.ρ_atm && τ̂ > 0.0 && S2 < τ̂*(τ̂+2D̂)) || return false
+    end
+    true
+end
+# The paper's ΛΠ¹ minmod in 3D (their Sec. IV.B.3): per reference direction, the element's linear
+# slope is compared with the neighbour-mean differences; if any direction is limited the solution
+# is replaced by mean + limited linear slopes (higher modes dropped); then the physical-state check
+# with slope halving. Means and slopes are taken in the reference coordinates, as they do (with the
+# small conservation violation they note on deformed elements).
+function _limit_minmod3d_elem!(st::DGBall3DState, eng::DGBall3DEngine, ke::Int)
+    e=eng.elems[ke]; bs=(eng.bases[e.p[1]],eng.bases[e.p[2]],eng.bases[e.p[3]])
+    for U in (st.D, st.Sx, st.Sy, st.Sz, st.τ)
+        ū=_refmean(eng,U,e); a=zeros(3); changed=false
+        for b in 1:3
+            a1=_refslope(eng,U,e,b)
+            em=eng.neigh[2b-1,ke]; ep=eng.neigh[2b,ke]
+            ūm = em==0 ? ū : _refmean(eng,U,eng.elems[em]); ūp = ep==0 ? ū : _refmean(eng,U,eng.elems[ep])
+            a[b]=_mm3(a1, ūp-ū, ū-ūm); a[b] != a1 && (changed=true)
+        end
+        if changed
+            @inbounds for k in 1:e.N[3], j in 1:e.N[2], i in 1:e.N[1]
+                U[nidx(e,i,j,k)]=ū+a[1]*bs[1].ξ[i]+a[2]*bs[2].ξ[j]+a[3]*bs[3].ξ[k]
+            end
+        end
+    end
+    if !_physical3(st,eng,e)
+        for it in 1:40
+            for U in (st.D, st.Sx, st.Sy, st.Sz, st.τ)
+                ū=_refmean(eng,U,e)
+                @inbounds for q in 1:nnodes(e); n=e.off+q-1; U[n]=ū+0.5*(U[n]-ū); end
+            end
+            _physical3(st,eng,e) && break
+        end
+    end
+end
+
 function _limit!(st::DGBall3DState, eng::DGBall3DEngine)
     eng.limiter == :none && return
-    Threads.@threads for e in eng.elems
+    Threads.@threads for ke in 1:eng.K
+        e=eng.elems[ke]
         e.region in eng.limit_regions || continue
         if eng.limiter == :wb; _limit_wb_elem!(st,eng,e)
         elseif eng.limiter == :mean; _limit_mean_elem!(st,eng,e)
+        elseif eng.limiter == :minmod; _limit_minmod3d_elem!(st,eng,ke)
         else error("unknown limiter $(eng.limiter)") end
     end
 end
