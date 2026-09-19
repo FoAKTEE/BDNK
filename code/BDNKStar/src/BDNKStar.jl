@@ -53,7 +53,9 @@ include("dg/DGCommon.jl")
 include("dg/DGExactRiemann.jl")
 include("dg/DGSRHydro.jl")
 include("dg/DGStar.jl")
+include("dg/DGSubcell.jl")
 include("dg/DGStarHP.jl")
+include("dg/DGStarFD.jl")
 include("dg/DGBall3D.jl")
 include("dg/DGCart2D.jl")
 include("dg/DGCart3D.jl")
@@ -99,7 +101,9 @@ using .DGCommon
 using .DGExactRiemann
 using .DGSRHydro
 using .DGStar
+using .DGSubcell
 using .DGStarHP
+using .DGStarFD
 using .DGBall3D
 using .DGCart2D
 using .DGCart3D
@@ -125,6 +129,9 @@ export setup_srdg, set_initial!, evolve_srdg!, srdg_primitives, srdg_cell_means,
 export exact_riemann_sr, sample_riemann_sr, RiemannSol
 export setup_dgstar, evolve_dgstar!, seed_dgstar_radial!, dgstar_central_density,
        dgstar_surface_width, dgstar_radial_freq
+export setup_dgstarfd, evolve_dgstarfd!, seed_dgstarfd_radial!, dgstarfd_central_density,
+       dgstarfd_errD, dgstarfd_baryon_mass, dgstarfd_fd_fraction, dgstarfd_active_map,
+       dgstarfd_spectrum
 export hp_grid, setup_dgstarhp, evolve_dgstarhp!, seed_dgstarhp_radial!, dgstarhp_central_density,
        dgstarhp_errD, dgstarhp_baryon_mass, dgstarhp_spectrum, dgstarhp_surface_state
 export ball_grid, setup_dgball3d, evolve_dgball3d!, seed_dgball3d_radial!, seed_dgball3d_l2!,

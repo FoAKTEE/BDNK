@@ -48,6 +48,7 @@ using Test
     include("test_dg.jl")
     include("test_dgstarhp.jl")
     include("test_dgball3d.jl")
+    include("test_dgstarfd.jl")
     include("test_dg3d.jl")
     include("test_bdnk_mhd.jl")
     include("test_bdnk_mhd1d.jl")

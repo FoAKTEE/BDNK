@@ -815,6 +815,80 @@ code, no longer evolves a DG star surface at all: its Cowling test excludes the 
 full-star runs use finite-difference subcells. That is the state of the art and it is where a
 nonlinear 3D star for this project would have to go.
 
+### 7.12 The DG / finite-difference hybrid — `DGSubcell` + `DGStarFD`, radial star (2026-09-19)
+
+The scheme Deppe et al. (PRD 105, 123031; arXiv:2109.12033) endorse after finding that every
+classical DG limiter fails on a neutron star: each element carries both a DG polynomial on N
+Legendre–Gauss–Lobatto nodes and M = 2N−1 finite-volume subcells, a troubled-cell indicator
+chooses which one is evolved, and the two are exchanged conservatively. `src/dg/DGSubcell.jl`
+holds the grid-agnostic machinery (projection, reconstruction, indicators, MC slope),
+`src/dg/DGStarFD.jl` the radial star. Tests `test/test_dgstarfd.jl` (62). Data
+`repro/data/dgstarfd_hybrid_*`; figure `paper/figs/dgstarfd_hybrid.png`.
+
+**The machinery, verified to machine precision.** The projection P (DG → subcell averages) is
+built from exact Gauss–Legendre integrals of the Lagrange basis over each subcell; the
+reconstruction R (subcell → DG) is the constrained least squares of SpECTRE's
+`reconstruction_matrix`, minimising ‖Pu − v‖² subject to the element integral being preserved.
+At every degree tested (p = 1…7): ‖R P − I‖ ≤ 9×10⁻¹⁶, a constant projects to itself to 10⁻¹⁶,
+and P carries the element integral exactly. The Persson indicator gives a top-mode fraction of
+1.3×10⁻³ for smooth data against 1.5×10⁻¹ for a jump, with threshold p⁻⁴ = 1.2×10⁻².
+
+**Three implementation points that had to be right.**
+1. *A uniform atmosphere element is smooth.* The first indicator forced every element below the
+   density cutoff onto the subgrid — 56% of the grid — because they are "unphysical". SpECTRE's
+   `TciOptions` does the opposite: an element lying entirely in the atmosphere is uniform and
+   stays on DG; only elements that *straddle* the cutoff are troubled. With that correction the
+   subgrid holds 4–10% of the elements, exactly those containing the stellar surface.
+2. *The subcell recovery must divide by the cell average of √γ.* M = 2N−1 is odd, so the central
+   element's middle subcell is centred on x = 0, where √γ = e^{λ/2}x² vanishes identically: the
+   densitized state carries no information there and the recovery returned atmosphere, emptying
+   the star from the centre (ρ_c → ρ_atm in the pure-FV run). The cell average is both regular
+   and the consistent finite-volume reading of q̄ = (1/h)∫√γρW dx.
+3. *Closure capture in the setup.* A nested geometry closure assigning to `α` wrote into the
+   enclosing array of the same name — Julia binds an inner assignment to an existing enclosing
+   local. Renaming the closure's locals fixed it.
+
+**Results on SpECTRE's configuration** (uniform degree-5 elements, the surface inside an element
+rather than on a boundary, no limiter and no filter; K elements per side over [0, 3R]; unseeded
+runs to 10⁴ M⊙, seeded runs v = 10⁻³ sin(πr/R) to 4×10³ M⊙; linear Cowling modes F = 2.6861,
+H₁ = 4.5495, H₂ = 6.3414, H₃ = 8.1082 kHz):
+
+| K | DG nodes | subcells | subgrid | err[D̃] at 10⁴ | F | H₁ | H₂ | H₃ |
+|---|---|---|---|---|---|---|---|---|
+| 10 | 126 | 231 | 10% | 3.14×10⁻² | −0.75% | −3.53% | — | — |
+| 14 | 174 | 319 | 7% | 1.79×10⁻² | −0.38% | −1.84% | −4.77% | −5.06% |
+| 20 | 246 | 451 | 5% | 1.08×10⁻² | −0.12% | −0.91% | −2.94% | −5.35% |
+| 28 | 342 | 627 | 4% | 6.86×10⁻³ | **−0.04%** | **−0.36%** | **−1.17%** | −2.62% |
+| 20, pure finite volume | — | 451 | 100% | 2.10×10⁻² | −0.56% | −2.45% | −4.96% | — |
+
+err[D̃] settles (it does not grow at any resolution — the left panel of the figure is flat from
+t ≈ 2000 to 10⁴) and converges as h^1.4–1.7, the rate being set by the second-order subcells at
+the surface rather than by the degree-5 interior. The mode frequencies converge much faster and
+reach the linear values to 0.04% (F) and 0.36% (H₁) at K = 28. Baryon mass is conserved to
+10⁻¹² — the common numerical flux is shared across every DG/FD interface, so the hybrid is
+conservative by construction, and the pure-FV limit is conservative to 2×10⁻¹³.
+
+**What the DG elements buy.** At K = 20 the hybrid and the pure finite-volume run use the same
+451 subcells and cost within a factor 1.6; the hybrid's err[D̃] is 1.9× smaller and its mode
+frequencies are 3–5× closer to linear theory (F −0.12% against −0.56%, H₁ −0.91% against
+−2.45%). Evolving 95% of the star spectrally is worth that.
+
+**Robustness — the point of the method.** Nothing tried blew up. In particular the I1 grid with
+the v = 10⁻³ seed, which under the paper's own ΛΠ¹ minmod blows a wind with the atmosphere
+reaching |v| → 1 and M_b growing by 7×10⁻⁴ (§7.9), runs with the atmosphere bounded and M_b to
+10⁻⁴ under the hybrid. That is the claim of arXiv:2109.12033 reproduced.
+
+**Where the hybrid is NOT the best choice.** On the hp grids designed for limiters it is worse
+than the pure-DG scheme of §7.9. The thin surface elements of I1/I2 sit next to interior
+elements several times their size, and the subcell ghost exchange across that jump rings the
+star: I2 seeded settles at err[D̃] = 2.5×10⁻³ but keeps a 1.3% central-density oscillation whose
+spectrum is not the radial tower, and I1 still reaches |v| ≈ 0.9 in the atmosphere. The
+equilibrium-preserving scaling limiter of §7.8–7.9 on the I2 grid remains the most accurate 1D
+configuration (an exact fixed point with the residual subtraction, err[D̃] = 10⁻³ without it),
+because it is built to preserve the TOV equilibrium, whereas the hybrid deliberately lets the
+star settle. The two answer different questions: the limiter is for precision on a star that
+stays near equilibrium, the hybrid is for robustness when it does not.
+
 ---
 
 *Generated as part of the pre-publication audit. Suite state and all tabulated numbers
