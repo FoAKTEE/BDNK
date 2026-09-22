@@ -29,9 +29,22 @@
     Conserved evolution (well-balanced finite-volume balance law):
         ∂_t(√γ̃ u) + (1/Δr)[ A_{k+1}F_{k+1} − A_k F_k ] = √γ̃ s,
     A = α X r² the face area weight, F the orthonormal radial fluxes. The
-    geometric/gravity source uses the LIVE α, X, and ∂_r(ln α). We subtract the
-    initial-equilibrium RHS (well-balancing) so the static TOV star starts at
-    machine-zero RHS, then the metric solve keeps it balanced as it evolves.
+    geometric/gravity source uses the LIVE α, X, and ∂_r(ln α).
+
+    WELL-BALANCING BY HYDROSTATIC RECONSTRUCTION (the default, `wellbalanced=:hydrostatic`).
+    A static barotropic star obeys the exact first integral
+        q ≡ H(p) + ln α = const,      H(p) = ∫₀^p dp'/(ε+p')   (pseudo-enthalpy, = ln h),
+    so the faces are reconstructed in q — not in (ρ,p) — and mapped back onto the local
+    hydrostatic profile, p_face = H⁻¹(q_face − ln α_face). A star in equilibrium has q ≡ const,
+    the limited slope is then exactly zero, the two face states coincide, and the HLL
+    dissipation vanishes. The gravity source is the SAME hydrostatic extrapolation differenced
+    across the cell, [A_R(p_eq,R − p) − A_L(p_eq,L − p)]/Δr, so flux and source cancel to
+    round-off at ANY resolution (Audusse et al. 2004; Käppeli & Mishra 2014, in the GR form).
+    The initial data is iterated to the fixed point of the SAME discrete constraint solve
+    (`_discrete_equilibrium!`), because interpolated continuum TOV data is off the discrete
+    equilibrium by a truncation error that no well-balanced scheme can hold.
+    `wellbalanced=:subtract` is the legacy path (plain reconstruction, initial RHS stored and
+    subtracted); `:none` is the bare operator.
 
     VALIDATION (each test a Cowling engine CANNOT do):
       1. static TOV stationarity over many dynamical times;
@@ -138,10 +151,25 @@ mutable struct DynGREngine
     # This knob exists to TEST the 2026-07-19 audit's no-slip diagnosis; see
     # repro/viscous_damping.jl and VALIDATION.md §6.
     atm_vbc::Symbol
-    # well-balancing equilibrium RHS (subtracted; static star → zero RHS)
+    # THE SCHEME:
+    #   :hydrostatic — reconstruct the equilibrium invariant q = H(p)+lnα and build the gravity
+    #                  source from the same hydrostatic extrapolation (exact to round-off);
+    #   :plain       — legacy: independent (ρ,p,v) reconstruction with the algebraic source.
+    wb::Symbol
+    hyd_fac::Float64           # hydrostatic-support threshold (see _hydrostatic_profiles!)
+    # Store the initial RHS and subtract it at every step. Exact for the state it was measured
+    # on and nothing else, so with :hydrostatic it only compensates what that scheme cannot
+    # balance — the one-cell star/atmosphere surface.
+    subtract::Bool
+    # well-balancing equilibrium RHS (subtracted; static star → zero RHS)  [subtract only]
     Seq_D::Vector{Float64}
     Seq_S::Vector{Float64}
     Seq_τ::Vector{Float64}
+    # hydrostatic-reconstruction scratch (filled by _hydrostatic_profiles! each RHS call)
+    qeq::Vector{Float64}       # q = H(p) + ln α at every cell (ghosts included)
+    peqL::Vector{Float64}      # interior cell i hydrostatically extrapolated to its LEFT  face
+    peqR::Vector{Float64}      # interior cell i hydrostatically extrapolated to its RIGHT face
+    hyd::Vector{Bool}          # interior cell i has real hydrostatic support (see below)
 end
 
 @inline _lininterp(xs, ys, x) = begin
@@ -156,6 +184,84 @@ end
 @inline function _p_of_rho(eos::BarotropicEOS, ρ::Float64)
     eos isa ShumPolytrope && return eos.κ*ρ^2
     return pressure(eos, ρ)
+end
+
+# ---------------------------------------------------------------------------
+# PSEUDO-ENTHALPY  H(p) = ∫₀^p dp'/(ε(p')+p') = ln h  for a cold barotrope.
+# The static relativistic Euler equation p' = −(ε+p)(ln α)' integrates EXACTLY to
+#     H(p) + ln α = const                                   (relativistic Bernoulli)
+# for ANY barotrope, which is the invariant the hydrostatic reconstruction limits.
+# ShumPolytrope (p = κρ², ε = ρ+p ⇒ h = 1+2κρ) has the closed form below; log1p/expm1
+# keep it accurate to full precision down to the atmosphere, where H → 0 like 2√(κp).
+# ---------------------------------------------------------------------------
+@inline _pseudo_h(eos::ShumPolytrope, p::Float64) = log1p(2*sqrt(eos.κ*max(p, 0.0)))
+@inline function _p_of_pseudo(eos::ShumPolytrope, H::Float64)
+    u = expm1(max(H, 0.0))
+    return u*u/(4*eos.κ)
+end
+# generic barotrope: H = ln h = ln((ε+p)/ρ), inverted by bisection (H is monotone in p).
+@inline function _pseudo_h(eos::BarotropicEOS, p::Float64)
+    p ≤ 0 && return 0.0
+    ρ = rho_from_p(eos, p)
+    ρ ≤ 0 && return 0.0
+    return log(max((energy_from_pressure(eos, p) + p)/ρ, 1.0))
+end
+function _p_of_pseudo(eos::BarotropicEOS, H::Float64)
+    H ≤ 0 && return 0.0
+    plo, phi = 0.0, 1.0
+    for _ in 1:200
+        _pseudo_h(eos, phi) ≥ H && break
+        phi *= 4
+    end
+    for _ in 1:80
+        pm = 0.5*(plo + phi)
+        (_pseudo_h(eos, pm) < H) ? (plo = pm) : (phi = pm)
+    end
+    return 0.5*(plo + phi)
+end
+
+# ---------------------------------------------------------------------------
+# HYDROSTATIC PROFILES. Fill (a) the equilibrium invariant q = H(p)+lnα at every cell, the
+# variable the face reconstruction limits, and (b) each interior cell's OWN hydrostatic
+# extrapolation of its pressure to its two faces — the discrete gravity the source uses.
+#
+# ONLY WHERE THERE IS HYDROSTATIC SUPPORT TO PRESERVE. The map p ↦ H⁻¹(H(p)+Δ) is violently
+# steep as p → 0: dlnp = 2Δ(1+u)/u with u = expm1(H) → 2√(κp), so in the low-density tail and
+# in the constant-density atmosphere (H(p_atm) ~ 10⁻⁷ against half a cell of lnα ~ 10⁻³) it
+# returns a face pressure many orders of magnitude above the cell value and pumps mass into the
+# stellar surface. A cell is flagged `hyd` only if it is above the atmosphere cut AND its own
+# extrapolation to both faces stays inside a factor `hyd_fac` of its pressure — i.e. only where
+# hydrostatic support genuinely dominates. Where the flag is off, the face falls back to plain
+# reconstruction and the source to the plain algebraic −A(ε+p)Φ', which is exactly what the
+# unbalanced operator does there; pairing those two fallbacks is essential, since a hydrostatic
+# source against a plainly reconstructed flux is worse than either on its own.
+# The atmosphere cut is what does the work. The `hyd_fac` test (default 1e4, four decades of
+# steepening across half a cell) excludes at most ONE further cell — always the outermost fluid
+# one, which the star/atmosphere face already leaves unbalanced — and across the stars and
+# resolutions tested it excludes none at all about half the time. It is a safety valve against
+# an unresolved profile, not a tuning knob.
+# ---------------------------------------------------------------------------
+function _hydrostatic_profiles!(st::DynGRState, eng::DynGREngine)
+    g = eng.g; eos = eng.eos; N = g.N; NG = g.NG
+    ρ_cut = eng.atm.ρ_cut; fac = eng.hyd_fac
+    @inbounds for i in eachindex(st.p)
+        eng.qeq[i] = _pseudo_h(eos, st.p[i]) + log(max(st.α[i], 1e-300))
+    end
+    @inbounds for i in 1:N
+        ai = NG+i; p0 = st.p[ai]
+        ok = st.ρ[ai] > ρ_cut
+        pL = p0; pR = p0
+        if ok
+            q0 = eng.qeq[ai]
+            pL = _p_of_pseudo(eos, q0 - log(max(st.αf[i],   1e-300)))   # inward  ⇒ p rises
+            pR = _p_of_pseudo(eos, q0 - log(max(st.αf[i+1], 1e-300)))   # outward ⇒ p falls
+            ok = (pL ≤ fac*p0) && (pR ≥ p0/fac)
+        end
+        eng.hyd[i] = ok
+        eng.peqL[i] = ok ? pL : p0
+        eng.peqR[i] = ok ? pR : p0
+    end
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -434,13 +540,36 @@ function _raw_rhs!(rD, rS, rτ, rB, st::DynGRState, eng::DynGREngine)
     g=eng.g; eos=eng.eos; N=g.N; NG=g.NG; Δr=g.Δr
     fill!(rD,0.0); fill!(rS,0.0); fill!(rτ,0.0); fill!(rB,0.0)
     mhd = eng.mhd
+    hydro = eng.wb === :hydrostatic
+    hydro && _hydrostatic_profiles!(st, eng)
     @inbounds for k in 1:N+1
         aL = NG + k - 1
-        ρL,ρR = _reconstruct(st.ρ, aL)
-        pL,pR = _reconstruct(st.p, aL)
+        ρL=0.0; ρR=0.0; pL=0.0; pR=0.0
+        # A face takes the hydrostatic branch only when BOTH its cells are flagged (see
+        # _hydrostatic_profiles!). That pairing is what keeps the cancellation exact: a cell
+        # whose two faces are both hydrostatic is differenced against the very same p_eq the
+        # source uses. The star/atmosphere face is never hydrostatic.
+        if hydro && k ≥ 2 && k ≤ N && eng.hyd[k-1] && eng.hyd[k]
+            # HYDROSTATIC RECONSTRUCTION. Limit the equilibrium invariant q = H(p)+lnα, then
+            # put each face state back on the local hydrostatic profile through its own cell,
+            # p = H⁻¹(q_face − ln α_face). At equilibrium q ≡ const ⇒ the minmod slope is
+            # exactly zero ⇒ pL = pR = p_eq(r_face), the HLL dissipation vanishes identically,
+            # and the momentum flux is exactly the equilibrium pressure the source differences.
+            # ρ then follows from p through the EOS, so the face state is barotropically
+            # CONSISTENT (limiting ρ and p independently is not).
+            qL,qR = _reconstruct(eng.qeq, aL)
+            lnαf = log(max(st.αf[k], 1e-300))
+            pL = max(_p_of_pseudo(eos, qL - lnαf), eng.atm.p_atm)
+            pR = max(_p_of_pseudo(eos, qR - lnαf), eng.atm.p_atm)
+            ρL = max(rho_from_p(eos,pL), eng.atm.ρ_atm)
+            ρR = max(rho_from_p(eos,pR), eng.atm.ρ_atm)
+        else
+            ρL,ρR = _reconstruct(st.ρ, aL)
+            pL,pR = _reconstruct(st.p, aL)
+            ρL=max(ρL,eng.atm.ρ_atm); ρR=max(ρR,eng.atm.ρ_atm)
+            pL=max(pL,eng.atm.p_atm); pR=max(pR,eng.atm.p_atm)
+        end
         vL,vR = _reconstruct(st.v, aL)
-        ρL=max(ρL,eng.atm.ρ_atm); ρR=max(ρR,eng.atm.ρ_atm)
-        pL=max(pL,eng.atm.p_atm); pR=max(pR,eng.atm.p_atm)
         vL=clamp(vL,-0.999,0.999); vR=clamp(vR,-0.999,0.999)
         εL=energy_from_pressure(eos,pL); εR=energy_from_pressure(eos,pR)
         UL,FL = _phys_flux(eos, ρL, pL, vL)
@@ -561,10 +690,28 @@ function _raw_rhs!(rD, rS, rτ, rB, st::DynGRState, eng::DynGREngine)
         Xp = X^3*(4π*r*Etot - st.m[ai]/r^2)
         # ∂_r(αXr²) from the very face areas used by the flux difference (this is what makes
         # the pressure terms telescope)
-        dA = (st.αf[i+1]*st.Xf[i+1]*st.rf2[i+1] - st.αf[i]*st.Xf[i]*st.rf2[i])/Δr
+        A_L = st.αf[i]*st.Xf[i]*st.rf2[i]
+        A_R = st.αf[i+1]*st.Xf[i+1]*st.rf2[i+1]
+        dA = (A_R - A_L)/Δr
         # --- momentum: covariant source / X, then the ∂_t X frame term
         rS[ai] /= X                                   # the flux difference accumulated above
-        rS[ai] += ( p*dA + α*r^2*Xp*(ρhW2*v^2 + Emag) - α*X*r^2*(ρhW2 + B2)*Φp )/X
+        if hydro && eng.hyd[i]
+            # GRAVITY AS A HYDROSTATIC PRESSURE DIFFERENCE. −A(ε+p)Φ' is discretised as this
+            # cell's OWN hydrostatic profile differenced across its two faces. It is second-order
+            # consistent (the two ±Δr/2 extrapolations are centred, so the Δr terms add up to
+            # −A(ε+p)Φ' and the Δr² terms cancel), and — because those are the very p_eq the flux
+            # reconstructed — it cancels the flux difference EXACTLY, not to truncation order,
+            # whenever q ≡ const. What is left of the Φ' term is the kinetic part (ε+p)(W²−1),
+            # written so that it is identically zero at v = 0, plus the magnetic stress.
+            Gi = (A_R*(eng.peqR[i] - p) - A_L*(eng.peqL[i] - p))/Δr
+            wkin = (ε + p)*v^2/(1.0 - clamp(v^2,0.0,1.0-1e-12))      # (ε+p)(W²−1) ≥ 0
+            rS[ai] += ( p*dA + Gi + α*r^2*Xp*(ρhW2*v^2 + Emag)
+                        - α*X*r^2*(wkin + B2)*Φp )/X
+        else
+            # no hydrostatic support here (surface shell / atmosphere): the plain algebraic
+            # source, i.e. exactly what the unbalanced operator applies.
+            rS[ai] += ( p*dA + α*r^2*Xp*(ρhW2*v^2 + Emag) - α*X*r^2*(ρhW2 + B2)*Φp )/X
+        end
         rS[ai] += 4π*α*r*X*(ρhW2 + B2)*v*st.S[ai]
         # --- energy
         rτ[ai] += -α*r^2*(ρhW2 + B2)*v*Φp + 4π*α*r^3*X^2*Srr*(ρhW2 + B2)*v
@@ -574,10 +721,60 @@ end
 
 function _rhs!(rD, rS, rτ, rB, st::DynGRState, eng::DynGREngine)
     _raw_rhs!(rD, rS, rτ, rB, st, eng)
-    @inbounds for i in eachindex(rD)
-        rD[i]-=eng.Seq_D[i]; rS[i]-=eng.Seq_S[i]; rτ[i]-=eng.Seq_τ[i]
+    if eng.subtract
+        @inbounds for i in eachindex(rD)
+            rD[i]-=eng.Seq_D[i]; rS[i]-=eng.Seq_S[i]; rτ[i]-=eng.Seq_τ[i]
+        end
     end
     return nothing
+end
+
+# ---------------------------------------------------------------------------
+# DISCRETE hydrostatic equilibrium initial data.
+#
+# A well-balanced operator can only hold a state that is an equilibrium OF THE DISCRETISATION.
+# Sampling the continuum TOV solution at cell centres is not: the discrete constraint solve
+# returns an α that differs from the continuum lapse by its own truncation error, so
+# H(p) + ln α picks up an O(Δr²) ripple and the scheme faithfully accelerates it. Here the
+# first integral and the constraint solve are iterated against each other,
+#     α ← metric(ρ,p);    p_i ← H⁻¹(C − ln α_i),   C = H(p_c) + ln α_1,
+# to a fixed point, which pins the central density and leaves q constant to round-off.
+# Returns (iterations, final max|Δp|/p_c).
+# ---------------------------------------------------------------------------
+function _discrete_equilibrium!(st::DynGRState, eng::DynGREngine, ρc::Float64;
+                                tol::Float64=1e-14, maxit::Int=200)
+    g=eng.g; eos=eng.eos; N=g.N; NG=g.NG; atm=eng.atm
+    Hc = _pseudo_h(eos, _p_of_rho(eos, ρc))        # central pseudo-enthalpy: fixes the star
+    pc = max(_p_of_rho(eos, ρc), atm.p_atm)
+    it = 0; err = Inf; prev = Inf
+    while it < maxit && err > tol
+        it += 1; err = 0.0
+        _solve_metric!(st, eng)
+        C = Hc + log(max(st.α[NG+1], 1e-300))      # anchored on the FIRST CELL's lapse
+        @inbounds for i in 1:N
+            ai = NG+i
+            p = _p_of_pseudo(eos, C - log(max(st.α[ai], 1e-300)))
+            ρ = rho_from_p(eos, p)
+            if ρ ≤ atm.ρ_atm
+                ρ = atm.ρ_atm; p = atm.p_atm
+            end
+            err = max(err, abs(p - st.p[ai])/pc)
+            st.ρ[ai]=ρ; st.p[ai]=p; st.ε[ai]=energy_from_pressure(eos,p); st.v[ai]=0.0
+        end
+        @inbounds for gc in 1:NG
+            ii=NG-gc+1; jj=NG+gc                    # reflecting centre
+            st.ρ[ii]=st.ρ[jj]; st.p[ii]=st.p[jj]; st.ε[ii]=st.ε[jj]; st.v[ii]=0.0
+            io=NG+N+gc                              # atmosphere outside
+            st.ρ[io]=atm.ρ_atm; st.p[io]=atm.p_atm; st.ε[io]=atm.ε_atm; st.v[io]=0.0
+        end
+        # Once the update stops shrinking there is nothing left to gain: the fixed point is
+        # resolved to the last bit of the pressure, and without this the loop would spin out
+        # its whole iteration budget bouncing between two neighbouring floats.
+        (err ≥ prev && err < 1e-10) && break
+        prev = err
+    end
+    _solve_metric!(st, eng)
+    return it, err
 end
 
 # ---------------------------------------------------------------------------
@@ -585,19 +782,45 @@ end
 # the well-balancing equilibrium RHS.
 # ---------------------------------------------------------------------------
 """
-    setup_dyngr(eos, εc; N=400, rmax_fac=1.3, atm_fac=1e-7, cfl=0.3,
-                riemann=:hll, h_tov=2e-4, wellbalanced=true) -> (engine, state)
+    setup_dyngr(eos, εc; N=400, rmax_fac=1.3, atm_fac=1e-7, cfl=0.3, riemann=:hll,
+                h_tov=2e-4, wellbalanced=:hydrostatic, subtract=nothing,
+                discrete_ic=nothing, hyd_fac=1e4) -> (engine, state)
 
-Build the 1+1D dynamical-GR engine on the TOV star of central energy density
-`εc`. The metric is initialized from TOV but then re-solved from the matter
-every substep (dynamical GR). If `wellbalanced`, the static TOV star starts at
-machine-zero RHS.
+Build the 1+1D dynamical-GR engine on the TOV star of central energy density `εc`. The metric
+is initialized from TOV but then re-solved from the matter every substep (dynamical GR).
+
+`wellbalanced` selects the SCHEME and `subtract` whether the initial residual is also stored
+and subtracted at every step:
+
+* `:hydrostatic` (default, also `true`) — hydrostatic reconstruction: the faces are limited in
+  the equilibrium invariant q = H(p)+lnα and the gravity source is the same hydrostatic
+  extrapolation differenced across the cell, so the discrete equilibrium is held to ROUND-OFF
+  at any resolution. The initial data is iterated to the fixed point of the discrete constraint
+  solve (`discrete_ic`, on by default in this mode), since the interpolated continuum TOV
+  profile is not an equilibrium of the discretisation.
+* `:plain` (also `:none`, `false`) — the legacy operator: independent (ρ,p,v) reconstruction
+  with the algebraic geometric source.
+* `:subtract` — `:plain` with `subtract=true`, i.e. the pre-2026-09-22 default.
+
+`subtract=true` on top of `:hydrostatic` compensates the one thing that scheme cannot balance,
+the star/atmosphere surface cell; it defaults to `false`, so the operator stands on its own.
 """
 function setup_dyngr(eos::BarotropicEOS, εc::Float64; N::Int=400,
                      rmax_fac::Float64=1.3, atm_fac::Float64=1e-7,
                      cfl::Float64=0.3, riemann::Symbol=:hll, h_tov::Float64=2e-4,
-                     wellbalanced::Bool=true, freeze_metric::Bool=false,
+                     wellbalanced::Union{Bool,Symbol}=:hydrostatic,
+                     subtract::Union{Bool,Nothing}=nothing,
+                     discrete_ic::Union{Bool,Nothing}=nothing, hyd_fac::Float64=1e4,
+                     freeze_metric::Bool=false,
                      ν_visc::Float64=0.0, atm_vbc::Symbol=:zero)
+    wb = wellbalanced === true ? :hydrostatic :
+         (wellbalanced === false ? :none : wellbalanced)
+    wb in (:hydrostatic, :plain, :subtract, :none) || throw(ArgumentError(
+        "wellbalanced must be :hydrostatic, :plain, :subtract or :none (or a Bool); " *
+        "got $wellbalanced"))
+    sbt = subtract === nothing ? (wb === :subtract) : subtract
+    wb = wb === :hydrostatic ? :hydrostatic : :plain      # :subtract/:none are plain + a flag
+    dic = discrete_ic === nothing ? (wb === :hydrostatic) : discrete_ic
     star = solve_tov(eos, εc; h=h_tov)
     R, M = star.R, star.M
     rmax = rmax_fac*R
@@ -622,9 +845,15 @@ function setup_dyngr(eos::BarotropicEOS, εc::Float64; N::Int=400,
         st.ρ[i]=ρ; st.p[i]=p; st.ε[i]=ε; st.v[i]=0.0
     end
     eng = DynGREngine(g, eos, atm, cfl, riemann, R, M, εc, freeze_metric, false, 0.0,
-                      ν_visc, atm_vbc, zeros(ntot), zeros(ntot), zeros(ntot))
+                      ν_visc, atm_vbc, wb, hyd_fac, sbt,
+                      zeros(ntot), zeros(ntot), zeros(ntot),
+                      zeros(ntot), zeros(N), zeros(N), falses(N))
     # initial metric solve from the matter (reproduces TOV m,α)
     _solve_metric!(st, eng)
+    # project the interpolated TOV profile onto the DISCRETE equilibrium (see
+    # _discrete_equilibrium!): the fixed point of the first integral against this very
+    # constraint solve, which is what a well-balanced operator can actually hold.
+    dic && _discrete_equilibrium!(st, eng, ρc)
     # densitize conserved with the live √γ̃
     @inbounds for i in 1:ntot
         sg = st.sqrtg[i]
@@ -633,7 +862,7 @@ function setup_dyngr(eos::BarotropicEOS, εc::Float64; N::Int=400,
     end
     _update_primitives!(st, eng); _fill_ghosts!(st, eng)
     _solve_metric!(st, eng)
-    if wellbalanced
+    if sbt
         _raw_rhs!(eng.Seq_D, eng.Seq_S, eng.Seq_τ, zeros(length(eng.Seq_D)), st, eng)
     end
     return eng, st
@@ -800,6 +1029,7 @@ function seed_dyngr_toroidal!(st::DynGRState, eng::DynGREngine; B0::Float64=0.00
     end
     _update_primitives!(st, eng); _fill_ghosts!(st, eng); dyngr_metric!(st, eng)
     if rebalance
+        eng.subtract = true
         # well-balance the MAGNETISED state: subtract its initial RHS so the magnetised
         # star is (approximately) stationary — defines the equilibrium for clean MODE
         # perturbations (the f-mode then carries the magnetic-pressure restoring force).

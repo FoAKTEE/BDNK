@@ -952,7 +952,9 @@ now asserted alongside it: the stable star takes the same kick without collapsin
 unstable star kicked **outward** migrates instead — the sign of the kick decides, which is the
 physics.
 
-**What still needs the subtraction.** Balance is now to truncation order, not machine
+**What still needs the subtraction.** *(Superseded by §7.16 — hydrostatic reconstruction
+makes the raw operator exact in the stellar interior, and the subtraction is off by default
+from 2026-09-22.)* Balance at this point was to truncation order, not machine
 precision: the raw operator leaves ρ_c ringing at a few 10⁻³ over 200 M⊙ (and that amplitude
 converges only slowly, because it is set by the mismatch between the interpolated TOV data and
 the discrete equilibrium rather than by the residual alone) where `wellbalanced=true` is exact.
@@ -970,6 +972,177 @@ re-run here: `repro/radial_overtone_crosscheck.jl`, `repro/radial_shoot_crossche
 `viz/dyngr_radial_validation.jl`. Their recorded numbers predate the fix; the frequencies in
 particular will move by the same ~5% the fundamental did. `test_radial_spectrum.jl` is
 unaffected (it runs no time-domain engine).
+
+### 7.16 `DynGR1D` hydrostatic reconstruction — the raw operator now holds the star exactly (2026-09-22)
+
+§7.15 fixed the flux/source pair and left one thing open: balance held only to truncation
+order, so the unsubtracted operator still let ρ_c drift at a few 10⁻³ and the 10⁻⁶ target was
+**not** met. The remedy named there was hydrostatic reconstruction. This is it.
+
+**The construction.** A static barotropic star obeys an exact first integral. With
+p′ = −(ε+p)(ln α)′ and dp/(ε+p) = dH for the pseudo-enthalpy H(p) = ∫₀^p dp′/(ε+p′) = ln h,
+
+>  **q ≡ H(p) + ln α = const**    (the relativistic Bernoulli integral)
+
+so *q*, not (ρ,p), is the variable the scheme should limit.
+
+1. **Faces.** Build q at cell centres, limit it with the same minmod slope, and map each face
+   state back onto the local hydrostatic profile, p_face = H⁻¹(q_face − ln α_face); ρ and ε then
+   follow from p through the EOS, so the face state is barotropically **consistent** (limiting ρ
+   and p independently is not). A star in equilibrium has q ≡ const, so the slope is exactly
+   zero, the two face states are the same number, and the HLL dissipation vanishes identically
+   instead of being O(Δr²).
+2. **Source.** Gravity is discretised as the cell's OWN hydrostatic profile differenced across
+   its two faces, `[A_R(p_eq,R − p) − A_L(p_eq,L − p)]/Δr`, in place of the algebraic
+   −A(ε+p)Φ′. It is second-order consistent (the two ±Δr/2 extrapolations are centred) and,
+   because those are the very p_eq the flux reconstructed, it cancels the flux difference
+   **identically**, not to truncation order. What is left of the Φ′ term is the kinetic piece
+   (ε+p)(W²−1), written so that it is identically zero at v = 0. The p·∂_r(αXr²) grouping of
+   §7.15 is unchanged, and the D and τ rows need nothing: with v = 0 and equal face states their
+   fluxes and sources are already exactly zero.
+3. **Initial data.** A well-balanced operator can only hold an equilibrium *of the
+   discretisation*. Sampling the continuum TOV solution at cell centres is not one — the
+   discrete constraint solve returns a lapse differing from the continuum one by its own
+   truncation error, so q carries an O(Δr²) ripple that the scheme then faithfully accelerates.
+   `_discrete_equilibrium!` iterates the first integral against that same constraint solve,
+   p_i ← H⁻¹(C − ln α_i) with C anchored on the central cell and α ← metric(ρ,p), to a fixed
+   point. It converges in 12–17 iterations. It is also not optional: for the ρ_c = 7.993×10⁻³
+   star at N = 800, **without** it the spread of q across the star is 1.05×10⁻⁴ and the interior
+   residual 6.8×10⁻⁶; **with** it, 3.6×10⁻¹³ and 5.8×10⁻¹⁴.
+
+`ShumPolytrope` (p = κρ², ε = ρ+p ⇒ h = 1+2κρ) has H = `log1p(2√(κp))` and
+H⁻¹ = `expm1(H)²/4κ` in closed form, which hold full precision down to the floor; any other
+barotrope falls back to H = ln((ε+p)/ρ) with a bisection inverse.
+
+**Verification.** Everything below with **nothing subtracted**
+(`../athenak-bdnk/analysis/dyngr1d_wb_check.jl`, figure `dyngr1d_wb.png`).
+
+The residual must be read separately in the bulk and at the surface, because the two schemes
+fail in different *places* and one number over the whole star cannot tell an exactly balanced
+operator from a second-order one — which is why §7.15 could not see the difference. Momentum
+residual |∂_t S̃| over the stellar **interior**, r < 0.95R, divided by the local gravity scale,
+for the ρ_c = 1.28×10⁻³ star:
+
+| Δr | 0.0479 | 0.0240 | 0.0120 | 0.0060 | order |
+|---|---|---|---|---|---|
+| plain operator (§7.15) | 3.50×10⁻⁵ | 8.72×10⁻⁶ | 2.18×10⁻⁶ | 5.45×10⁻⁷ | 2.00 |
+| plain + discrete-equilibrium data | 4.84×10⁻⁵ | 1.20×10⁻⁵ | 3.00×10⁻⁶ | 7.49×10⁻⁷ | 2.00 |
+| **hydrostatic reconstruction** | **3.85×10⁻¹³** | **8.54×10⁻¹³** | **1.99×10⁻¹²** | **3.79×10⁻¹²** | round-off |
+
+Eight decades, and the last row does not converge — it *rises* linearly with the cell count,
+which is the signature of accumulated round-off rather than of a truncation error. The
+ρ_c = 7.993×10⁻³ star behaves the same way (7.84×10⁻⁵ → 1.35×10⁻⁶ against 3.08×10⁻¹⁴ →
+2.31×10⁻¹³). The middle row is the control that matters: the new initial data on the old
+operator is no better than before, so the gain is the scheme, not the data.
+
+Evolved, over 200 M⊙, unkicked, nothing subtracted (ρ_c = 1.28×10⁻³ star):
+
+| | N = 400 | N = 800 | N = 1600 | centre first moves at |
+|---|---|---|---|---|
+| plain operator | 4.31×10⁻³ | 2.55×10⁻³ | 1.48×10⁻³ | t = 1.0–1.1 |
+| plain + discrete-equilibrium data | 4.19×10⁻³ | 2.52×10⁻³ | 1.47×10⁻³ | t = 1.0–1.1 |
+| **hydrostatic reconstruction** | **9.51×10⁻⁴** | **5.52×10⁻⁴** | **2.65×10⁻⁴** | **t = 41.9 / 47.0 / 50.5** |
+
+The last column is the sharpest statement available: with the plain operator the centre starts
+moving within one M⊙, because the imbalance is spread through the bulk; with hydrostatic
+reconstruction ρ_c sits at round-off (∼3×10⁻¹⁵) for ~45 M⊙, which is about the time a sound
+signal needs to cross this star (R = 9.6, coordinate sound speed ≈ 0.3), and the delay **grows**
+with resolution — consistent with the surface injecting less as it is better resolved, which is
+also what the drift column does. Nothing in the interior moves the star; the drift is injected
+at the surface and has to travel in.
+
+Against the two independent frequency-domain eigensolvers (ε_c = 0.0015, N = 500, 220 R):
+
+| operator | F_dyn vs Chandrasekhar 2.1236 kHz | F_frozen vs Cowling 4.0099 kHz |
+|---|---|---|
+| before §7.15 | 2.02, −4.9% | 4.6, +15% |
+| §7.15, subtraction | 2.1304, +0.32% | 3.9994, −0.26% |
+| **hydrostatic, nothing subtracted** | **2.1234, −0.01%** | **4.0020, −0.20%** |
+| hydrostatic + subtraction | 2.1189, −0.22% | 3.9950, −0.37% |
+
+The pure hydrostatic operator is the most accurate of the four, and by a factor ~30 on the
+dynamical fundamental. That is the decisive evidence, because it is a comparison against an
+independent method rather than against the engine's own initial data. It is also why the
+subtraction is now **off** by default: it is the least accurate of the three post-fix rows,
+since what it freezes into place is a state-specific residual that the star then oscillates
+around. `test_dyngr.jl`: **56/56**.
+
+**The overtones too.** `repro/radial_overtone_crosscheck.jl`, one of the scripts §7.15 left
+owed, was re-run. It compares three independent routes — GHZ(1997) shooting, the
+Sturm–Liouville matrix eigensolver and the time-domain engine — and the engine now lands on
+every mode the two seeds excite:
+
+| | F | H1 | H2 | H3 |
+|---|---|---|---|---|
+| SL eigenvalue (kHz) | 2.1236 | 5.8946 | 8.8243 | 11.6005 |
+| DynGR1D periodogram peak | +0.05% | −0.04% | −0.03% | −0.03% |
+
+The fundamental turns up in both seeds, at +0.05% from the homologous one and −0.12% from the
+node-bearing one; H4 (14.3091 kHz) is not excited by either seed and so is not measured.
+
+`repro/radial_shoot_crosscheck.jl` was re-run too, and its three routes close: shooting 2.1236,
+SL 2.1236, engine 2.1234 — shoot-vs-engine **+0.01%**, where the value recorded in that script
+had been 2.03 and would have printed a 4.6% disagreement.
+
+**That benchmark had to be repaired before it could say so**, and both of its defects turned a
+correct engine result into an apparent failure. Its classifier held only (F, H1, H2) while the
+periodogram window reaches past H3, so the genuine H3 peak at 11.5967 kHz was assigned to H2 and
+printed as a **31.4% error**. And its closing verdict asked whether H1 was resolved while looking
+only at the node-bearing seed — which is orthogonal to H1's eigenfunction by construction — so it
+printed "NO peak within 6% of H1" in the same report whose homologous probe carried H1 at −0.04%
+with 0.95 of the peak power. The target list now runs to H4 and the verdict reports every mode
+across both seeds and both probes.
+
+**Nothing physical moved.** The Phase-1 runs (`../athenak-bdnk/analysis/p1_dyngr1d.jl`) were
+regenerated with the new operator and reproduce §7.15 verdict for verdict and digit for digit:
+the Font et al. unstable star given a −1% kick still collapses at t_AH = 53.71 with central
+proper time τ_c = 10.01, horizon mass M_AH = 1.2734 and max 2m/r = 0.9598 (§7.15: 53.7, 10.0,
+1.273, 0.9595–0.9598); kicked +5% it still migrates, settling at ρ_c = 1.47×10⁻³ against the
+1.3×10⁻³ stable-branch star of that baryon mass; and the ε_c = 0.003 stable-branch star still
+merely oscillates, 6% above its initial central density with max 2m/r = 0.47. A scheme change
+that leaves an eight-decade mark on the residual and none at all on the physics is the outcome
+to want.
+
+**API.** `setup_dyngr(...; wellbalanced=:hydrostatic)` is the default; `:plain` (also `:none`,
+`false`) is the §7.15 operator. `subtract` is now a separate, orthogonal keyword defaulting to
+`false`; `wellbalanced=:subtract` reproduces the pre-2026-09-22 default (plain + subtraction).
+`discrete_ic` controls the initial-data projection and follows the scheme.
+
+**The honest negative: the surface.** The residual is exactly zero in the bulk and entirely
+concentrated in the **single cell** where the star meets the constant-density artificial
+atmosphere. That cell is not an equilibrium at all — ρ falls from ∼10⁻³ρ_c to the floor across
+it — so no flux/source pairing can balance it, and summed over the whole star the residual comes
+back up into the 10⁻⁶–10⁻⁸ range (unstable star 1.69×10⁻⁶ → 2.68×10⁻⁸ across the four
+resolutions, second order; stable star 4.78×10⁻⁶ → 5.05×10⁻⁷ but **not** monotone — the N = 800
+point is the worst of the four, because a one-cell residual depends on exactly where the surface
+happens to fall between cell faces). That one cell is what launches the drift in the table above. So: the 10⁻⁶ target is met **for the operator** (interior residual
+10⁻¹³, eight decades below it) and **not** for the time-integrated central density, which stays
+at a few 10⁻⁴ and converges only at ≈Δr¹ because it is set by how well the surface is resolved.
+Pass `subtract=true` to remove it if a strictly frozen background is wanted; it costs the 0.2%
+accuracy shown in the frequency table.
+
+Two further limits. The hydrostatic map is applied only where there is hydrostatic support to
+preserve: it is switched off in the atmosphere (ρ ≤ ρ_cut), because H(p_atm) ∼ 10⁻⁷ against half
+a cell of ln α ∼ 10⁻³ would return a face pressure eight orders of magnitude above the floor and
+pump mass into the surface — that was a real failure mode during development, worth 10⁻³ of
+spurious baryon-mass gain per 200 M⊙. A second guard (`hyd_fac`, default 10⁴) distrusts the map
+where the profile steepens by more than four decades across half a cell; across sixteen
+(star, resolution, box) combinations it excluded **at most one** cell — always the outermost
+fluid cell, the very one the star/atmosphere face already leaves unbalanced — and none at all in
+half of them. It is a safety valve against an unresolved profile, not a tuning knob. And the
+magnetised (toroidal) sector is unchanged from §7.15: B ≠ 0 is not part of the first integral,
+so a magnetised star is not well-balanced by this scheme and still needs `rebalance=true`.
+
+**Follow-up owed.** Two of the six scripts §7.15 listed are now discharged:
+`repro/radial_overtone_crosscheck.jl` and `repro/radial_shoot_crosscheck.jl`, above. A third,
+`repro/viscous_fmode_scaling.jl`, was on that list in error — it names DynGR1D only in a comment
+about a past audit and never runs it. What is still owed is `repro/viscous_damping.jl`, and the
+two figures `viz/dyngr_1d.png` and `viz/dyngr_radial_validation.png`, which still show the
+pre-§7.15 frequencies. The figures were **attempted and could not be produced here**: their
+scripts need `viz/Project.toml`'s CairoMakie, which is declared but not installed in this
+checkout, and instantiating it was left to the owner of the environment rather than done in
+passing. Neither script hard-codes a frequency — both call the engine — so re-running them is
+all that is required.
 
 ---
 

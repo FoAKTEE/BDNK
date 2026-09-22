@@ -7,8 +7,9 @@
     each of which a frozen-metric (Cowling) engine cannot do:
 
       1. static TOV is a genuine stationary solution of the FULL coupled system
-         (no lake-at-rest subtraction beyond well-balancing) — tiny bounded drift
-         over many dynamical times, no NaN, metric solve reproduces TOV m,α;
+         with NOTHING subtracted: the raw operator's interior residual is at round-off,
+         the centre does not move until a signal can reach it from the surface, and the
+         drift that surface injects is bounded and converges;
       2. the metric GENUINELY RESPONDS: the fundamental radial frequency from the
          dynamical evolution is distinct from (well below) the frozen-metric value,
          and the frozen-metric value tracks the validated relativistic Cowling
@@ -28,6 +29,9 @@ using BDNKStar: setup_dyngr, evolve_dyngr!, seed_dyngr_velocity!, seed_dyngr_tor
                 radial_cowling_spectrum
 using BDNKStar.DynGR1D: _solve_metric!, prim2cons_toroidal, cons2prim_toroidal,
                         dyngr_metric!
+# NOT `using ... : _raw_rhs!` — test_dgball3d.jl imports DGBall3D._raw_rhs! into the same Main
+# when runtests.jl includes both, and the second import is silently ignored. Call it qualified.
+const _dyngr_raw_rhs! = BDNKStar.DynGR1D._raw_rhs!
 using BDNKStar.FVCommon: AtmospherePars
 using BDNKStar.Units: kHz_to_km
 
@@ -62,13 +66,55 @@ end
     end
 
     # --- 1. static TOV stationarity over many dynamical times -----------------
+    # The default engine uses HYDROSTATIC RECONSTRUCTION and subtracts NOTHING (VALIDATION
+    # §7.16). The old assertion here, drift < 1e-6, was measuring the equilibrium subtraction
+    # rather than the operator: it held by construction because the initial RHS was stored and
+    # removed at every step, whatever that RHS was. What is asserted instead:
+    #
+    #   (a) the RAW, unsubtracted momentum residual over the stellar interior is at ROUND-OFF
+    #       and is orders below the plain operator's — the well-balancing statement proper;
+    #   (b) the centre therefore does not move AT ALL until a signal has had time to travel in
+    #       from the surface, the one place the scheme cannot balance, because there the star
+    #       meets a constant-density artificial atmosphere that is not an equilibrium;
+    #   (c) what that surface injects is bounded, below the plain operator's drift, and falls
+    #       with resolution — a truncation effect, not a consistency error;
+    #   (d) the subtraction still works on top of it, and then nothing moves at all.
     @testset "static TOV stationary (full coupled system)" begin
+        function bulk_residual(e, s)
+            n = length(s.D); rr = ntuple(_ -> zeros(n), 4)
+            _dyngr_raw_rhs!(rr..., s, e)
+            num = 0.0; den = 0.0
+            for i in 1:e.g.N
+                ai = e.g.NG + i; e.g.r[ai] < 0.95*e.R || continue
+                num += abs(rr[2][ai])
+                den += max(abs(s.sqrtg[ai]*s.ε[ai]*s.α[ai]*s.dlnα[ai]), 1e-300)
+            end
+            num/den
+        end
         eng, st = setup_dyngr(eos, εc; N=400, cfl=0.3)
-        res = evolve_dyngr!(st, eng; tmax=15*star.R)       # ~15 dynamical times
+        engp, stp = setup_dyngr(eos, εc; N=400, cfl=0.3, wellbalanced=:none)
+        # (a) the raw operator holds the discrete equilibrium: 7.5e-13 against 3.5e-5
+        @test bulk_residual(eng, st) < 1e-10
+        @test bulk_residual(eng, st) < 1e-5*bulk_residual(engp, stp)
+        res = evolve_dyngr!(st, eng; tmax=15*star.R, sample_dt=1.0)   # ~15 dynamical times
         @test res.ts[end] ≥ 14*star.R
         @test isfinite(res.ρc[end])
-        @test res.drift < 1e-6                             # machine-small drift
         @test !res.collapsed
+        # (b) untouched centre until the surface signal arrives (t ≈ 44 for this star)
+        early = maximum(abs(res.ρc[i]/res.ρc[1] - 1)
+                        for i in eachindex(res.ts) if res.ts[i] < 30.0)
+        @test early < 1e-11                                # 6e-15 measured
+        # (c) bounded, converging, and below the plain operator
+        resp = evolve_dyngr!(stp, engp; tmax=15*star.R, sample_dt=1.0)
+        @test res.drift < 5e-3                             # 2.4e-3
+        @test res.drift < resp.drift                       # 2.4e-3 vs 3.5e-3
+        eng2, st2 = setup_dyngr(eos, εc; N=800, cfl=0.3)
+        res2 = evolve_dyngr!(st2, eng2; tmax=15*star.R, sample_dt=1.0)
+        @test res2.drift < 0.6*res.drift                   # 8.6e-4: converges
+        # (d) the subtraction remains available and then the star is frozen outright
+        engs, sts = setup_dyngr(eos, εc; N=400, cfl=0.3, subtract=true)
+        ress = evolve_dyngr!(sts, engs; tmax=15*star.R, sample_dt=1.0)
+        @test ress.drift < 1e-8                            # 1.9e-11
     end
 
     # --- 2. full-GR radial mode RESPONDS: dynamical ≠ frozen ------------------
@@ -94,11 +140,12 @@ end
         @test 3.6 < Ffrozen < 4.4               # frozen 4.00 kHz (= the Cowling eigenvalue)
         @test Fdyn < 0.7*Ffrozen                # metric response LOWERS the mode
         @test isapprox(Ffrozen, Fcow; rtol=0.03)# frozen tracks validated Cowling: −0.26%
-        # GATE: with the well-balanced operator (VALIDATION §7.15) the engine reproduces BOTH
-        # independent frequency-domain eigensolvers: F_dyn = 2.1304 vs the Chandrasekhar
-        # full-GR 2.1236 kHz (+0.32%), F_frozen = 3.9994 vs the Cowling 4.0099 (−0.26%).
-        # Before the fix the same runs gave 2.02 (−4.9%) and 4.6 (+15%).
-        @test isapprox(Fdyn, Fgr; rtol=0.03)
+        # GATE: with hydrostatic reconstruction (VALIDATION §7.16) the engine reproduces BOTH
+        # independent frequency-domain eigensolvers essentially exactly: F_dyn = 2.1234 vs the
+        # Chandrasekhar full-GR 2.1236 kHz (−0.01%), F_frozen = 4.0020 vs the Cowling 4.0099
+        # (−0.20%). The subtraction-only operator of §7.15 gave +0.32% and −0.26%; before that
+        # fix the same runs gave 2.02 (−4.9%) and 4.6 (+15%).
+        @test isapprox(Fdyn, Fgr; rtol=0.01)
     end
 
     # --- 3. full-GR and Cowling eigensolvers consistent -----------------------

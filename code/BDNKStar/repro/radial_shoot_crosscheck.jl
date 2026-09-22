@@ -4,7 +4,7 @@
     INDEPENDENT cross-check of the full-GR fundamental radial mode of the
     BDNKStar benchmark star, by a SHOOTING method — a DIFFERENT route than the
     Sturm–Liouville matrix eigensolver `chandrasekhar_radial_omega2` and the
-    time-domain dynamical-GR engine DynGR1D (F_dyn ≈ 2.03 kHz).
+    time-domain dynamical-GR engine DynGR1D (F_dyn ≈ 2.1234 kHz; VALIDATION.md §7.16).
 
     FORMULATION (relativistic radial pulsation, first-order (ξ, Δp) pair)
     --------------------------------------------------------------------
@@ -184,7 +184,10 @@ fcow, ω2cow, _ = radial_cowling_spectrum(EOS, EPSC; N=2000, h_tov=5e-5, nmodes=
 @printf("omega^2_Cowling[1] = %.6e   F_Cowling = %.4f kHz\n", ω2cow[1], fcow[1])
 
 println("\n=== SUMMARY: three independent routes ===")
-const FDYN = 2.03
+# Time-domain engine value, recorded rather than re-run here (DynGR1D, εc=0.0015, N=500,
+# 220 R, hydrostatic reconstruction — VALIDATION.md §7.16). It was 2.03 before the §7.15
+# flux/source fix and 2.1304 with the subtraction-only operator of §7.15.
+const FDYN = 2.1234
 @printf("  F_dyn   (DynGR1D time-domain) = %.4f kHz  [engine benchmark]\n", FDYN)
 @printf("  F_SL    (SL matrix eig)       = %.4f kHz\n", fkHz(ω2_sl[1]))
 @printf("  F_shoot (this script)         = %.4f kHz\n", fkHz(ω2_shoot))

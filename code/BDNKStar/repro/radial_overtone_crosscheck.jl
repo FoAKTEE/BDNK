@@ -23,9 +23,9 @@
     PART 2 — DYNAMICAL ENGINE OVERTONES
       Excite the engine (DynGR1D) with a node-bearing radial velocity profile
       (sin(2πr/R), one interior node — projects onto H1) and FFT ρ_c(t) and a
-      probe near a velocity antinode. Report which radial modes (F, H1, ...) the
-      time-domain dynamical-GR engine resolves and whether the peak sits at the
-      eigenvalue H1.
+      probe near a velocity antinode. Report, for EVERY eigenvalue F..H4 and for
+      BOTH seeds, which peaks the time-domain dynamical-GR engine puts there and
+      how far off they are.
 =#
 
 using BDNKStar
@@ -284,7 +284,10 @@ println("# =====================================================================
 F_eig  = fkHz(ω2sl_b[1])
 H1_eig = fkHz(ω2sl_b[2])
 H2_eig = fkHz(ω2sl_b[3])
-@printf("# eigenvalue targets (SL): F=%.4f  H1=%.4f  H2=%.4f kHz\n\n", F_eig, H1_eig, H2_eig)
+H3_eig = fkHz(ω2sl_b[4])
+H4_eig = fkHz(ω2sl_b[5])
+@printf("# eigenvalue targets (SL): F=%.4f  H1=%.4f  H2=%.4f  H3=%.4f  H4=%.4f kHz\n\n",
+        F_eig, H1_eig, H2_eig, H3_eig, H4_eig)
 
 # Custom node-bearing seed: v = A * sin(2π r/R) (ONE interior node @ r=R/2),
 # orthogonal to the nodeless fundamental → should project strongly onto H1.
@@ -390,12 +393,16 @@ function classify(pk, targets)
     end
     return out
 end
-targets = [("F",F_eig),("H1",H1_eig),("H2",H2_eig)]
+# The window reaches past H3, so the target list has to as well: with only (F,H1,H2) in it a
+# genuine H3 peak is assigned to H2 and reported as a 31% error, which is how a −0.03% match
+# came to look like a failure of the engine.
+targets = [("F",F_eig),("H1",H1_eig),("H2",H2_eig),("H3",H3_eig),("H4",H4_eig)]
 
-println("\n=== (2C) ENGINE PEAKS classified vs eigenvalues (F,H1,H2) ===")
-println("  homol  rho_c : ", join(classify(pk_rc1[1:min(3,end)], targets), " | "))
-println("  node   rho_c : ", join(classify(pk_rc2[1:min(3,end)], targets), " | "))
-println("  node   probe : ", join(classify(pk_pr2[1:min(3,end)], targets), " | "))
+println("\n=== (2C) ENGINE PEAKS classified vs eigenvalues (F..H4) ===")
+println("  homol  rho_c : ", join(classify(pk_rc1[1:min(4,end)], targets), " | "))
+println("  homol  probe : ", join(classify(pk_pr1[1:min(4,end)], targets), " | "))
+println("  node   rho_c : ", join(classify(pk_rc2[1:min(4,end)], targets), " | "))
+println("  node   probe : ", join(classify(pk_pr2[1:min(4,end)], targets), " | "))
 
 # Does the node-bearing run show a peak near H1?
 function nearest(pk, tf; tol=0.06)
@@ -406,22 +413,21 @@ function nearest(pk, tf; tol=0.06)
     end
     return (best !== nothing && best[3] < tol) ? best : nothing
 end
-h1_rc = nearest(pk_rc2, H1_eig); h1_pr = nearest(pk_pr2, H1_eig)
-f_rc2 = nearest(pk_rc2, F_eig);  f_pr2 = nearest(pk_pr2, F_eig)
-
-println("\n=== (2D) DOES THE ENGINE RESOLVE H1? ===")
-@printf("  H1 eigenvalue = %.4f kHz\n", H1_eig)
-if h1_rc !== nothing
-    @printf("  rho_c: H1 peak at %.4f kHz (%+.2f%%, rel.power %.2f) -> RESOLVED\n",
-            h1_rc[1], 100*(h1_rc[1]-H1_eig)/H1_eig, h1_rc[2])
-else
-    println("  rho_c: NO peak within 6% of H1")
-end
-if h1_pr !== nothing
-    @printf("  probe: H1 peak at %.4f kHz (%+.2f%%, rel.power %.2f) -> RESOLVED\n",
-            h1_pr[1], 100*(h1_pr[1]-H1_eig)/H1_eig, h1_pr[2])
-else
-    println("  probe: NO peak within 6% of H1")
+# WHICH MODES DOES THE ENGINE RESOLVE? Asked of BOTH seeds, not just the node-bearing one: the
+# node seed is orthogonal to H1's eigenfunction by construction, so looking only there once
+# reported "NO peak within 6% of H1" in the same run whose homologous probe carried H1 at
+# −0.04% with 0.95 of the peak power.
+println("\n=== (2D) WHICH RADIAL MODES DOES THE ENGINE RESOLVE? ===")
+for (lbl, tf) in targets
+    hits = String[]
+    for (sname, pk) in (("homol rho_c", pk_rc1), ("homol probe", pk_pr1),
+                        ("node rho_c",  pk_rc2), ("node probe",  pk_pr2))
+        h = nearest(pk, tf)
+        h === nothing && continue
+        push!(hits, @sprintf("%s %+.2f%% (pow %.2f)", sname, 100*(h[1]-tf)/tf, h[2]))
+    end
+    @printf("  %-2s = %7.4f kHz : %s\n", lbl, tf,
+            isempty(hits) ? "not excited in any series" : join(hits, " | "))
 end
 
 println("\n# DONE")
