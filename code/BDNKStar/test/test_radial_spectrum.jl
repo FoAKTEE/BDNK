@@ -20,7 +20,7 @@
       (d) the fundamental F²→0 at MAXIMUM MASS — a clean ω0²>0 → ω0²<0
           zero-crossing at KR's M_max central density (ρ_c≈5.65e15 g/cm³).
       (e) whatever the dynamical-GR engine DynGR1D resolves: the FUNDAMENTAL
-          (~2.0 kHz, the documented F_dyn benchmark) — verified in test_dyngr.jl;
+          (F_dyn = 2.1304 kHz after the well-balancing fix, VALIDATION §7.15) — verified in test_dyngr.jl;
           here we lock the SL fundamental that the engine reproduces.
 
     CENTRAL-DENSITY CONVENTION (load-bearing): matching KR's tabulated R(ρ_c)
@@ -261,7 +261,8 @@ end
 
     # =====================================================================
     # (e) dynamical-GR engine deliverable: the SL fundamental the time-domain
-    #     DynGR1D engine reproduces (F_dyn≈2.0 kHz, validated in test_dyngr.jl).
+    #     DynGR1D engine reproduces (F_dyn = 2.1304 kHz, +0.32% of the SL value,
+    #     validated in test_dyngr.jl after the VALIDATION §7.15 fix).
     #     We lock the SL fundamental + its Cowling ordering here (cheap), and
     #     the package-level chandrasekhar_radial_omega2 == our node-counting
     #     assembly (the eigensolver under test is the exported routine).

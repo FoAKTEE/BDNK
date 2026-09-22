@@ -454,8 +454,16 @@ function _raw_rhs!(rD, rS, rτ, rB, st::DynGRState, eng::DynGREngine)
             amax = max(abs(λmL),abs(λpL),abs(λmR),abs(λpR))
             Fn = lax_friedrichs_flux(UL, FL, UR, FR, amax)
         end
-        A = st.αf[k]*st.Xf[k]*st.rf2[k]      # LIVE face area weight α X r²
-        FD=A*Fn[1]; FS=A*Fn[2]; Fτ=A*Fn[3]; FB=0.0
+        # LIVE face weights. The evolved variables are densitised by √γ = X r², while the
+        # fluxes are the COORDINATE ones, √γ α F(v^r) with v^r = v/X (v is orthonormal):
+        #   D  :  √γ α D̂ v^r          = α r² · D̂v
+        #   S  :  √γ α (S_r v^r + p)  = α X r² · (Ŝv + p)   (S_r = X Ŝ, the covariant momentum)
+        #   τ  :  √γ α (τ̂ + p) v^r    = α r² · (τ̂+p)v
+        # Until 2026-09-22 every row carried α X r², which is the momentum weight — an extra
+        # factor X on the D and τ rows (VALIDATION.md §7.15).
+        AD = st.αf[k]*st.rf2[k]
+        AS = AD*st.Xf[k]
+        FD=AD*Fn[1]; FS=AS*Fn[2]; Fτ=AD*Fn[3]; FB=0.0
         if mhd
             BL,BR = _reconstruct(st.B, aL)
             # toroidal magnetic flux on the S,τ rows: U_mag=(B²v, ½B²(1+v²)),
@@ -464,7 +472,7 @@ function _raw_rhs!(rD, rS, rτ, rB, st::DynGRState, eng::DynGREngine)
             UmagT_L=0.5*BL^2*(1+vL^2); UmagT_R=0.5*BR^2*(1+vR^2)
             FSmag = 0.5*(UmagT_L+UmagT_R) - 0.5*(UmagS_R-UmagS_L)   # F_S,mag=½B²(1+v²)
             FTmag = 0.5*(UmagS_L+UmagS_R) - 0.5*(UmagT_R-UmagT_L)   # F_τ,mag=B²v
-            FS += A*FSmag; Fτ += A*FTmag
+            FS += AS*FSmag; Fτ += AD*FTmag
             # induction flux F=α v r B (upwind);  conserved Φ_B = X r B  (advected)
             rf = sqrt(st.rf2[k]); vf = 0.5*(vL+vR)
             Bup = vf ≥ 0 ? BL : BR
@@ -507,7 +515,7 @@ function _raw_rhs!(rD, rS, rτ, rB, st::DynGRState, eng::DynGREngine)
             dvdl=(vRc-vLc)/Δr
             FSv=-st.αf[k]*st.rf2[k]*μf*dvdl
             vmid=0.5*(vLc+vRc)
-            FS += FSv; Fτ += vmid*FSv
+            FS += FSv; Fτ += vmid*FSv/max(st.Xf[k],1e-10)
         end
         if k ≥ 2
             aLc = NG + (k-1); rD[aLc]-=FD/Δr; rS[aLc]-=FS/Δr; rτ[aLc]-=Fτ/Δr; rB[aLc]-=FB/Δr
@@ -516,22 +524,50 @@ function _raw_rhs!(rD, rS, rτ, rB, st::DynGRState, eng::DynGREngine)
             aRc = NG + k; rD[aRc]+=FD/Δr; rS[aRc]+=FS/Δr; rτ[aRc]+=Fτ/Δr; rB[aRc]+=FB/Δr
         end
     end
-    # geometric/gravity source with LIVE metric. Φ' ≡ ∂_r ln α (polar slicing).
+    # ---------------------------------------------------------------------------
+    # Geometric/gravity sources with the LIVE metric, in the WELL-BALANCED grouping.
+    #
+    # The Valencia source of the covariant radial momentum √γ S_r = X² r² Ŝ is
+    #     s_cov = (α/2)√γ T^{jk}∂_rγ_jk − √γ (ρhW²−p) ∂_rα
+    #           = α r² X'(ρhW²v² + p) + 2αXr p − α X r²(ρhW²−p)Φ'
+    # and every pressure piece of it is exactly p ∂_r(αXr²):
+    #     α r²X' + 2αXr + αXr²Φ' ≡ ∂_r(αXr²) ≡ A',
+    # so   s_cov = p A' + α r² X' ρhW²v² − α X r² ρhW² Φ'.
+    # With the flux written as ∂_r(A(Ŝv+p)), the pressure terms then cancel ANALYTICALLY,
+    #     −∂_r(A p) + p A' = −A p',
+    # leaving −A[p' + (ε+p)Φ'] — the TOV equation — so the static star is balanced to the
+    # order of the scheme once A' is discretised with the SAME face areas the flux difference
+    # used, (A_{k+1}−A_k)/Δr. (Until 2026-09-22 the source read −αXr²(ε+p)W²Φ' + 2αXr p, i.e.
+    # it was missing α r²X'p and αXr²pΦ'; the two together are of order p/ε, which is exactly
+    # the resolution-INDEPENDENT 5–16% static imbalance of VALIDATION.md §7.15.)
+    #
+    # The evolved momentum is the orthonormal S̃ = X r² Ŝ = √γ S_r / X, so the covariant
+    # equation is divided by X and carries the frame term −S̃ ∂_t lnX; polar slicing fixes
+    # ∂_t lnX = −α K^r_r algebraically through the momentum constraint, K^r_r = 4π r X ρhW²v.
+    #
+    # Energy: s_τ = −√γ S^i ∂_iα + α√γ T^{ij}K_ij = −α r² ρhW²vΦ' + 4π α r³X² S_rr ρhW²v.
+    # ---------------------------------------------------------------------------
     @inbounds for i in 1:N
         ai = NG + i; r = g.r[ai]
         α = st.α[ai]; X = st.X[ai]; Φp = st.dlnα[ai]
-        ρ=st.ρ[ai]; p=st.p[ai]; ε=st.ε[ai]; v=st.v[ai]
+        p=st.p[ai]; ε=st.ε[ai]; v=st.v[ai]
         W2 = 1.0/(1.0-clamp(v^2,0.0,1.0-1e-12))
-        sg = st.sqrtg[ai]
-        rS[ai] += α*sg*( -(ε+p)*W2*Φp ) + 2.0*α*X*r*p
-        rτ[ai] += α*sg*( -(ε+p)*W2*v*Φp )
-        if mhd
-            # toroidal magnetic gravity source (frame energy b²W²=B²; angular
-            # magnetic stresses cancel ⇒ no 2αXr term).  Φ_B advection has no source.
-            B2 = st.B[ai]^2
-            rS[ai] += α*sg*( -B2*Φp )
-            rτ[ai] += α*sg*( -B2*v*Φp )
-        end
+        ρhW2 = (ε+p)*W2
+        B2 = mhd ? st.B[ai]^2 : 0.0
+        Emag = 0.5*B2*(1 + v^2)                      # toroidal-field Eulerian energy / radial stress
+        Etot = ρhW2 - p + Emag                       # E, the Hamiltonian-constraint source
+        Srr  = ρhW2*v^2 + p + Emag                   # orthonormal radial stress
+        # X'(r) from the constraint ∂_r m = 4π r² E:  X = (1−2m/r)^{-1/2} ⇒ X' = X³(4πrE − m/r²)
+        Xp = X^3*(4π*r*Etot - st.m[ai]/r^2)
+        # ∂_r(αXr²) from the very face areas used by the flux difference (this is what makes
+        # the pressure terms telescope)
+        dA = (st.αf[i+1]*st.Xf[i+1]*st.rf2[i+1] - st.αf[i]*st.Xf[i]*st.rf2[i])/Δr
+        # --- momentum: covariant source / X, then the ∂_t X frame term
+        rS[ai] /= X                                   # the flux difference accumulated above
+        rS[ai] += ( p*dA + α*r^2*Xp*(ρhW2*v^2 + Emag) - α*X*r^2*(ρhW2 + B2)*Φp )/X
+        rS[ai] += 4π*α*r*X*(ρhW2 + B2)*v*st.S[ai]
+        # --- energy
+        rτ[ai] += -α*r^2*(ρhW2 + B2)*v*Φp + 4π*α*r^3*X^2*Srr*(ρhW2 + B2)*v
     end
     return nothing
 end
@@ -721,7 +757,10 @@ function seed_dyngr_velocity!(st::DynGRState, eng::DynGREngine; A::Float64=1e-3,
     @inbounds for i in 1:N
         ai=NG+i; r=g.r[ai]
         if r < eng.R
-            v = profile===:linear ? A*(r/eng.R) : A*sin(π*r/eng.R)
+            x = r/eng.R
+            # :cubic is AthenaK's dyngr_tov kick, v_r = A(3x − x³)/2 (surface amplitude A), so the
+            # same seed can be given to both codes for the Phase-1 cross-code collapse comparison
+            v = profile===:linear ? A*x : (profile===:cubic ? 0.5*A*(3x - x^3) : A*sin(π*x))
             st.v[ai]=v
             sg=st.sqrtg[ai]
             D̂,Ŝ,τ̂ = prim2cons_barotrope(eos, st.ρ[ai], st.p[ai], abs(v))

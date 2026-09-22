@@ -428,7 +428,6 @@ been rerun.
 
    Two thirds of the "staircase systematic" of §7.8 was the wrong source term. What remains
    (−0.5 to −3.5%, still non-monotone in K) is the staircase surface. test_dg3d.jl: 25/25.
-
 ### 7.8 `DGCart3D` limiter fix — equilibrium-preserving Zhang–Shu, deviation-form Rusanov (2026-09-17)
 
 **Attribution.** With the limiter switched off the unseeded star is static to 10⁻¹² (the RHS
@@ -888,6 +887,89 @@ configuration (an exact fixed point with the residual subtraction, err[D̃] = 10
 because it is built to preserve the TOV equilibrium, whereas the hybrid deliberately lets the
 star settle. The two answer different questions: the limiter is for precision on a star that
 stays near equilibrium, the hybrid is for robustness when it does not.
+
+### 7.15 `DynGR1D` was not well-balanced — diagnosis and fix (2026-09-22)
+
+Found while setting up the Phase-1 cross-code collapse comparison against AthenaK
+(`progress/plan_athenak_bdnk_collapse.md`, `code/athenak-bdnk/`). `setup_dyngr` stores the raw
+RHS of the initial TOV state in `Seq_*` and subtracts it at every step (`wellbalanced=true`,
+the default). That made the projected equilibrium an exact fixed point — and hid the fact that
+the operator underneath it was not balanced at all.
+
+**The diagnosis.** The raw static momentum residual (|∂_t S̃| over the stellar interior divided
+by the local gravity scale √γ̃(ρhW²−p)α ∂_r lnα) was **resolution-independent**: 5.347×10⁻² at
+Δr = 0.048, 5.346×10⁻² at 0.024 and 5.346×10⁻² at 0.012 for the ρ_c = 1.28×10⁻³ star, and
+1.578×10⁻¹ at every resolution for ρ_c = 7.993×10⁻³ (worst cells 22% and 41%). A truncation
+error falls as Δr²; this did not fall at all, so it was a consistency error. Subtracting the two
+terms the source was missing accounted for **99.99%** of it:
+
+* the momentum source read `−αXr²(ε+p)W²Φ' + 2αXr p`, i.e. it used the energy density
+  E = (ε+p)W² where the Valencia source calls for ρhW² − p, dropping **αXr²pΦ'**;
+* and it omitted the radial-stress term of (α/2)√γT^{jk}∂_rγ_jk, **αr²X′(ρhW²v²+p)**, entirely.
+
+Both are of order p/ε — which is exactly the size measured (p/ε = 0.44 at the centre of the
+unstable star against a 41% worst-cell residual). Separately, the D and τ rows carried the
+momentum row's area weight αXr² instead of αr²: the coordinate flux is √γ α F(v^r) with
+v^r = v/X, so only the momentum row keeps the X.
+
+**The fix** (`_raw_rhs!`). Every pressure piece of the Valencia source is exactly
+p ∂_r(αXr²) — since αr²X′ + 2αXr + αXr²Φ' ≡ ∂_r(αXr²) — so the source is now grouped as
+`p·A′ + αr²X′ρhW²v² − αXr²ρhW²Φ'` with **A′ discretised as (A_{k+1}−A_k)/Δr from the same face
+areas the flux difference uses**. The pressure terms then cancel analytically against the flux,
+−∂_r(Ap) + pA′ = −Ap′, leaving −A[p′ + (ε+p)Φ'] — the TOV equation — so hydrostatic balance
+holds to the order of the scheme by construction. The D and τ rows now carry αr²; the evolved
+orthonormal momentum S̃ = √γS_r/X carries the 1/X and the frame term −S̃∂_t lnX, with
+∂_t lnX = −αK^r_r fixed algebraically by the momentum constraint K^r_r = 4πrXρhW²v; X′ comes
+from the Hamiltonian constraint, X′ = X³(4πrE − m/r²). The energy row gains the
+α√γT^{ij}K_ij term. `wellbalanced` is kept as an option.
+
+**Verification.**
+
+| | before | after |
+|---|---|---|
+| raw static residual, Δr = 0.048 / 0.024 / 0.012 / 0.006 | 5.35×10⁻² at every Δr | 6.15×10⁻⁵ → 1.54×10⁻⁵ → 3.87×10⁻⁶ → 9.70×10⁻⁷, **order 2.00** |
+| same, unstable star | 1.578×10⁻¹ at every Δr | 8.81×10⁻⁵ → … → 1.51×10⁻⁶, order 1.9–2.0 |
+| unkicked star, no subtraction, 200 M⊙ (N = 400/800/1600) | ρ_c ×1.867 | max \|ρ_c/ρ_c0−1\| = 4.3×10⁻³ / 2.6×10⁻³ / 1.5×10⁻³ (sampled every 1 M⊙) |
+| dynamical radial mode vs the Chandrasekhar eigenvalue 2.1236 kHz | 2.02 kHz, **−4.9%** | **2.1304 kHz, +0.32%** |
+| frozen-metric mode vs the Cowling eigenvalue 4.0099 kHz | 4.6 kHz, +15% | **3.9994 kHz, −0.26%** |
+| unstable star −1% kick, `wellbalanced` true vs false | t_AH 26.5 vs 13.5 (factor 2) | ρ_c,end 1.614 vs 1.613×10⁻², max 2m/r 0.9595 vs 0.9598 |
+| unstable star +5% outward kick | dispersed to the floor (M_b −24%) | **migrates**, ρ_c oscillating about 1.40×10⁻³ — the stable-branch star of this baryon mass |
+
+The engine now reproduces **both** independent frequency-domain eigensolvers to better than
+0.35%, which is the real check on the corrected flux weights. `test_dyngr.jl`: 50/50.
+
+**A recorded result that the fix overturns.** The collapse test used ρ_c = 2.4162×10⁻³
+(ε_c = 0.003), described as "moderately compact"; that star is on the **stable** branch (the
+maximum mass of this EOS is at ρ_c ≈ 3.16×10⁻³), and a −3% kick cannot unbind it. It
+"collapsed" only because the 5%-of-gravity imbalance acted as a steady inward force. With the
+corrected operator it oscillates and settles 9% above its initial central density (α_c = 0.55,
+max 2m/r = 0.47) — the physical answer. **The former "collapse-to-BH (α_c → 0.001, 2m/r → 0.95,
+ρ_c × 4.8)" was an artifact and is withdrawn.** The genuine collapse test is now the
+unstable-branch star of Font et al. 2002 (ρ_c = 7.993×10⁻³, M = 1.448, R = 5.838) with a −1%
+kick: it collapses with t_AH = 53.7, central proper time τ_c = 10.0, horizon mass M_AH = 1.273
+(88% of the gravitational mass), identically with and without the subtraction. Two controls are
+now asserted alongside it: the stable star takes the same kick without collapsing, and the same
+unstable star kicked **outward** migrates instead — the sign of the kick decides, which is the
+physics.
+
+**What still needs the subtraction.** Balance is now to truncation order, not machine
+precision: the raw operator leaves ρ_c ringing at a few 10⁻³ over 200 M⊙ (and that amplitude
+converges only slowly, because it is set by the mismatch between the interpolated TOV data and
+the discrete equilibrium rather than by the residual alone) where `wellbalanced=true` is exact.
+The task's 10⁻⁶ target for the unsubtracted operator is therefore **not** met. Exact balance would need hydrostatic reconstruction (reconstructing
+the deviation from the local hydrostatic profile). The subtraction is now safe to use, because
+what it stores is a truncation-size residual rather than a 5–16% fake force; both settings agree
+on every Phase-1 verdict and on the collapse numbers above. The magnetised (toroidal) sector was
+transformed consistently with the fluid rows but **not** re-derived from the GRMHD source terms;
+its tests (flux conservation, field amplification, ADM-mass back-reaction) still pass and it
+remains the least-validated part of this engine.
+
+**Follow-up owed.** Four reproduction scripts and two figures consume this engine and were not
+re-run here: `repro/radial_overtone_crosscheck.jl`, `repro/radial_shoot_crosscheck.jl`,
+`repro/viscous_damping.jl`, `repro/viscous_fmode_scaling.jl`, `viz/dyngr_1d.jl` and
+`viz/dyngr_radial_validation.jl`. Their recorded numbers predate the fix; the frequencies in
+particular will move by the same ~5% the fundamental did. `test_radial_spectrum.jl` is
+unaffected (it runs no time-domain engine).
 
 ---
 
