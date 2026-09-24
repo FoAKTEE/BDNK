@@ -198,12 +198,39 @@ The cross-code gate before any BDNK physics.
 > [0,32] at 64^3 (no interface, same cost, but half the resolution on the star); or stabilising
 > the interface (more Kreiss-Oliger dissipation, stronger shift damping, or moving it outward).
 >
-> **In progress:** the uniform 64^3 control, `p1b_migration_font_box32_uni64`, started
-> 2026-09-24 15:10, to t = 300. It answers whether the interface was the culprit (does it
-> survive past t = 221.5?) and whether the outflow diagnosis holds with no interface at all (is
-> mass conserved?). It cannot give the period: at dx = 0.5 its initial central density is
-> already 11% below exact (7.099e-3 vs 7.993e-3, against 3% at dx = 0.25), so its resolution
-> differs from both runs it is compared with. Result to be recorded here.
+> **Result 2026-09-24 — the uniform 64^3 control (`p1b_migration_font_box32_uni64`): the
+> interface WAS the culprit, and the outflow comes back on the second expansion.** Same [0,32]
+> domain, no refinement anywhere (dx = 0.5, initial central density 11% low, so its period is not
+> comparable to either other run). It ran cleanly to t = 300: exit 0, zero primitive-solve
+> errors, H ~ 2-6e-5 and C ~ 1-2e-3 throughout -- straight past t = 221.5 where box32 blew up. So
+> box32 died of its fine/coarse interface, not of the enlarged domain.
+>
+> Mass is conserved through t ~ 221 (-7.8e-6 against the original's -9.0e-3), confirming the
+> outflow diagnosis on a grid with no interface at all. Then it returns, by the same mechanism:
+>
+> | t | rho at the outer face (r = 32) | rho = 1e-8 reaches r = | M_b drift | original [0,16] |
+> |---|---|---|---|---|
+> | 225 | 1.8e-10 (atmosphere) | 24.25 | -8e-6 | -9.0e-3 |
+> | 250 | 1.3e-8 | 31.75 (the edge) | -1.2e-4 | -4.1e-2 |
+> | 275 | 8.6e-8 | 31.75 | -2.8e-3 | -6.8e-2 |
+> | 300 | 1.8e-7 | 31.75 | -9.4e-3 | -7.6e-2 |
+>
+> The second expansion is larger than the first and its diffuse envelope reaches r = 32 at
+> t ~ 250. Doubling the box cuts the loss eightfold at t = 300 but cannot hold a large-amplitude
+> migration indefinitely behind an outflow boundary: a finite box only delays it.
+>
+> **Where that leaves the period comparison.** The only data with both the original resolution
+> and conserved mass is box32 up to t = 221.5 (tau ~ 165): one recompression, not the several a
+> periodogram needs. A clean period needs a larger interface-free domain -- e.g. [0,64] uniform at
+> dx = 0.25, which is 256^3 and a cluster job -- or a refinement interface made stable.
+>
+> Also found here: AthenaK copies every parameter line, inline comment included, into the header
+> of each binary dump, and `vis/python/bin_convert.py` splits those lines on EVERY '='. A second
+> '=' anywhere -- `problem = ... (dx = 0.5)`, or `rhoc = 1.28e-3 # M=1.400` -- makes the dumps
+> unreadable (AthenaK's own stock whisky input does it too: `kappa = 100.0 # P = kappa*rho^gamma`).
+> Ten decks were fixed by keeping the first '=' on each parameter line and turning later ones into
+> ':', verified with a zero-cycle run read back by the unmodified reader. The existing uni64 dumps
+> predate the fix and were read by patching the '=' out of a copy, same length so no offsets move.
 >
 > **Phase-1 status: the VERDICT half passes on both Font setups; the QUANTITATIVE half fails.**
 > Nothing in this phase is converged to the few percent the gate asks for, and the apparent

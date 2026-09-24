@@ -75,7 +75,7 @@ damp_kappa1     = 0.02
 damp_kappa2     = 0.0
 
 <problem>
-rhoc        = 1.28e-3    # K=100, Gamma=2 star: M=1.400, R_areal=9.586, R_iso=8.125
+rhoc        = 1.28e-3    # K:100, Gamma:2 star: M:1.400, R_areal:9.586, R_iso:8.125
 kappa       = 100.0
 npoints     = 10000.0
 dr          = 1e-3

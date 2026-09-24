@@ -6,7 +6,7 @@
 # Diagnostic only: it tests the interface and the outflow diagnosis, NOT the period, because the
 # resolution differs from both runs it is compared with. dt doubles with dx: 2400 cycles to 300.
 <comment>
-problem  = Font 2002 migration, +0.05 kick, UNIFORM [0,32] at 64^3 (dx = 0.5), no refinement
+problem  = Font 2002 migration, +0.05 kick, UNIFORM [0,32] at 64^3 (dx: 0.5), no refinement
 
 <job>
 basename = tov

@@ -5,7 +5,7 @@
 # The coarse run reached the lapse collapse by t = 58 and lost the 3-metric at t = 66, so
 # tlim = 120 is ample; AthenaK does not subcycle, so dt follows the finest level.
 <comment>
-problem  = Font 2002 unstable TOV, -0.01 kick, ONE static level on the centre (dx = 0.125)
+problem  = Font 2002 unstable TOV, -0.01 kick, ONE static level on the centre (dx: 0.125)
 
 <job>
 basename = tov

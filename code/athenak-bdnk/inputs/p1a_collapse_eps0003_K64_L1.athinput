@@ -6,7 +6,7 @@
 # AthenaK does not subcycle, so dt follows the finest level; tlim is cut to 150, which still
 # covers the window where the unrefined run had reached alpha_min = 0.11 (t = 119).
 <comment>
-problem  = p1a collapse, 1 level(s) of centre refinement (dx_centre = 0.125)
+problem  = p1a collapse, 1 level(s) of centre refinement (dx_centre: 0.125)
 
 <job>
 basename = tov

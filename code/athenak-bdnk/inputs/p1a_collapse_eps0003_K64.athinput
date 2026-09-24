@@ -4,7 +4,7 @@
 # is the surface velocity (matched by DynGR1D's profile=:cubic).
 
 <comment>
-problem  = collapse of the eps_c=0.003 star under a -0.03 inward kick (DynGR1D test 4)
+problem  = collapse of the eps_c:0.003 star under a -0.03 inward kick (DynGR1D test 4)
 
 <job>
 basename = tov
