@@ -1,0 +1,185 @@
+# p1b_collapse_font_ahf_cluster - THE APPARENT-HORIZON RUN, DEFERRED TO THE CLUSTER (not runnable on the laptop).
+#
+# Phase 1's remaining gate is "AH mass to a few %". Three constraints force this mesh:
+#   1. the horizon sits at isotropic radius M/2 = 0.637 (M_AH = 1.2734 from DynGR1D), which the
+#      octant's dx = 0.25 resolves with 2.5 cells; ~20 cells needs dx = 0.03125, four levels down.
+#      The same under-resolution is why every octant collapse run lost positive-definiteness of
+#      the 3-metric at the innermost cells just as the lapse collapsed;
+#   2. src/z4c/fastflow.cpp has no symmetry or domain handling, so 7/8 of the horizon surface
+#      falls outside an octant - hence the FULL box and diode (not reflecting) inner faces;
+#   3. AthenaK does not subcycle, so dt follows the finest level: dt = 0.0078.
+#
+# Cost, MEASURED by smoke-testing this very input: 288 MeshBlocks, 1.18M cells, dt = 0.0078125,
+# 2.07e4 zone-cycles/s on 2 threads. Reaching t = 80 needs 10240 cycles = 1.21e10 zone-cycles:
+#   2 threads            6.8 days
+#   8 threads, x4 ideal  1.7 days
+#   8 threads, x3 real   2.3 days
+# That is risk item 6 of progress/plan_athenak_bdnk_collapse.md arriving with a number.
+#
+# Smoke-tested locally to 2 cycles: the mesh builds (288 blocks, 4 physical levels, the level
+# counts above), the TOV data is identical to the octant runs (R = 5.8381, M = 1.44759), and
+# fastflow initialises and writes tov.horizon_summary_0.txt / tov.horizon_verbose_0.txt. Only
+# the physics is deferred, not the configuration.
+<comment>
+problem  = Font 2002 collapse, FULL box, 4 centre levels, apparent-horizon finder
+
+<job>
+basename = tov
+
+<mesh>
+nghost = 4
+nx1    = 64
+x1min  = -16.0
+x1max  = 16.0
+ix1_bc = diode
+ox1_bc = diode
+nx2    = 64
+x2min  = -16.0
+x2max  = 16.0
+ix2_bc = diode
+ox2_bc = diode
+nx3    = 64
+x3min  = -16.0
+x3max  = 16.0
+ix3_bc = diode
+ox3_bc = diode
+
+<meshblock>
+nx1  = 16
+nx2  = 16
+nx3  = 16
+
+<mesh_refinement>
+refinement         = static
+prolong_primitives = true
+
+<refined_region1>
+level = 1
+x1min = -8.0
+x1max = 8.0
+x2min = -8.0
+x2max = 8.0
+x3min = -8.0
+x3max = 8.0
+
+<refined_region2>
+level = 2
+x1min = -4.0
+x1max = 4.0
+x2min = -4.0
+x2max = 4.0
+x3min = -4.0
+x3max = 4.0
+
+<refined_region3>
+level = 3
+x1min = -2.0
+x1max = 2.0
+x2min = -2.0
+x2max = 2.0
+x3min = -2.0
+x3max = 2.0
+
+<refined_region4>
+level = 4
+x1min = -1.0
+x1max = 1.0
+x2min = -1.0
+x2max = 1.0
+x3min = -1.0
+x3max = 1.0
+
+<time>
+evolution  = dynamic
+integrator = rk3
+cfl_number = 0.25
+nlim       = -1
+tlim       = 80
+ndiag      = 100
+
+<coord>
+general_rel = true
+m           = 1.0
+a           = 0.0
+excise      = false
+
+<mhd>
+eos         = ideal
+dyn_eos     = ideal
+dyn_error   = reset_floor
+reconstruct = ppmx
+rsolver     = hlle
+dfloor      = 1.0e-10
+tfloor      = 1.0e-8
+dthreshold  = 1.02
+gamma       = 2.0
+dyn_scratch = 1
+fofc        = true
+enforce_maximum = false
+
+<adm>
+
+<z4c>
+lapse_oplog     = 2.0
+lapse_harmonicf = 1.0
+lapse_harmonic  = 0.0
+lapse_advect    = 1.0
+shift_eta       = 1.4
+shift_advect    = 1.0
+diss            = 0.5
+chi_div_floor   = 1e-05
+damp_kappa1     = 0.02
+damp_kappa2     = 0.0
+horizon_dt      = 1.0
+
+<problem>
+rhoc        = 0.007993
+kappa       = 100.0
+npoints     = 10000.0
+dr          = 1e-3
+isotropic   = true
+b_norm      = 0.0
+pcut        = 1e-6
+magindex    = 1
+user_hist   = true
+v_pert      = -0.01
+
+<output1>
+file_type   = hst
+dt          = 0.25
+data_format = %20.15e
+
+<output2>
+file_type   = bin
+variable    = mhd_w
+dt          = 25.0
+slice_x3    = 0.0
+
+<output3>
+file_type   = bin
+variable    = z4c
+dt          = 25.0
+slice_x3    = 0.0
+
+<fastflow>
+num_horizons = 1
+npunct       = 0
+ntheta       = 10
+lmax         = 6
+verbose      = true
+# one horizon, fixed at the origin: the collapse is spherical and does not drift, so no puncture
+# tracker is needed. use_puncture_N = -1 is "no puncture" -- the default; 0 would mean "track
+# puncture index 0" and aborts with "punc = 0 > npunct = 0" when npunct is 0.
+# initial_radius is the guess the flow starts from; the target is M/2 = 0.637.
+use_puncture_0   = -1
+initial_radius_0 = 1.0
+center_x_0       = 0.0
+center_y_0       = 0.0
+center_z_0       = 0.0
+flow_iterations_0       = 100
+flow_alpha_beta_const_0 = 1.0
+hmean_tol_0 = 100.0
+mass_tol_0  = 1e-2
+# the coarse octant run's lapse passes 0.05 at t ~ 58 and it dies at t ~ 66; start looking early
+start_time_0 = 30.0
+stop_time_0  = 80.0

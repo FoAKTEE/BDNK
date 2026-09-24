@@ -1,0 +1,102 @@
+# p0b_tov_z4c_K32_timing — dynamical Z4c spacetime, 32^3 timing run
+# Phase 0 of progress/plan_athenak_bdnk_collapse.md. Built from inputs/dyn_grmhd/whisky_tov.athinput
+# with the box of Deppe et al. 2021 (octant of [-20,20]^3) and the paper's star.
+
+<comment>
+problem  = dynamical Z4c spacetime, 32^3 timing run
+
+<job>
+basename = tov
+
+<mesh>
+nghost = 4
+nx1    = 32
+x1min  = 0.0
+x1max  = 20.0
+ix1_bc = reflect
+ox1_bc = diode
+nx2    = 32
+x2min  = 0.0
+x2max  = 20.0
+ix2_bc = reflect
+ox2_bc = diode
+nx3    = 32
+x3min  = 0.0
+x3max  = 20.0
+ix3_bc = reflect
+ox3_bc = diode
+
+<meshblock>
+nx1  = 32
+nx2  = 32
+nx3  = 32
+
+<time>
+evolution  = dynamic
+integrator = rk3
+cfl_number = 0.25
+nlim       = -1
+tlim       = 50
+ndiag      = 100
+
+<coord>
+general_rel = true
+m           = 1.0
+a           = 0.0
+excise      = false
+
+<mhd>
+eos         = ideal
+dyn_eos     = ideal
+dyn_error   = reset_floor
+reconstruct = ppmx
+rsolver     = hlle
+dfloor      = 1.0e-10
+tfloor      = 1.0e-8
+dthreshold  = 1.02
+gamma       = 2.0
+dyn_scratch = 1
+fofc        = true
+enforce_maximum = false
+
+<adm>
+
+<z4c>
+# puncture gauge (1+log slicing, Gamma-driver shift), AthenaK BNS defaults scaled to M=1.4
+lapse_oplog     = 2.0
+lapse_harmonicf = 1.0
+lapse_harmonic  = 0.0
+lapse_advect    = 1.0
+shift_eta       = 1.4        # ~2/M
+shift_advect    = 1.0
+diss            = 0.5        # Kreiss-Oliger
+chi_div_floor   = 1e-05
+damp_kappa1     = 0.02
+damp_kappa2     = 0.0
+
+<problem>
+rhoc        = 1.28e-3    # K=100, Gamma=2 star: M=1.400, R_areal=9.586, R_iso=8.125
+kappa       = 100.0
+npoints     = 10000.0
+dr          = 1e-3
+isotropic   = true       # conformally flat initial slice (the puncture-gauge / Deppe et al. choice)
+b_norm      = 0.0
+pcut        = 1e-6
+magindex    = 1
+user_hist   = true
+v_pert      = 0.0
+
+<output1>
+file_type   = hst
+dt          = 1.0
+data_format = %20.15e
+
+<output2>
+file_type   = bin
+variable    = mhd_w
+dt          = 1000.0
+slice_x3    = 0.0
+
+<output3>
+file_type   = rst
+dt          = 1000.0

@@ -1,0 +1,125 @@
+# p1b_migration_font_box32 - the Font migration run in a box the migrated star fits in.
+# The [0,16] run lost 13.3% of its baryon mass: the expanded envelope reaches the outermost cell
+# layer with rho ~ 1e-6, four decades above the 1e-10 atmosphere, and ox_bc = diode lets it out.
+# Loss is exactly zero through t = 75 (envelope still at r ~ 11) and starts at t ~ 100 when the
+# envelope first touches the boundary -- so this is outflow, not surface shedding.
+# Domain doubled to [0,32] with one static level back over [0,16], so the star keeps the SAME
+# cell size (0.25) and the same dt, at 1.9x the cells rather than the 8x a uniform 128^3 costs.
+# MeshBlocks are 32^3, not 16^3: with nghost = 4 a 16^3 block is 70% ghost zones, which cost
+# 4.4x the original single-block run instead of the 1.9x the cell count implies. tlim = 500
+# tlim = 200 reaches tau ~ 150, past t ~ 100 where the [0,16] run's envelope first touched
+# the boundary and began losing mass (0.8% by t = 200, 13.3% by t = 800). That tests the
+# diagnosis; it is too short to measure the radial period, which needs tau ~ 370.
+
+<comment>
+problem  = Font 2002 migration, +0.05 kick, doubled box [0,32] + one level on [0,16]
+
+<job>
+basename = tov
+
+<mesh>
+nghost = 4
+nx1    = 64
+x1min  = 0.0
+x1max  = 32.0
+ix1_bc = reflect
+ox1_bc = diode
+nx2    = 64
+x2min  = 0.0
+x2max  = 32.0
+ix2_bc = reflect
+ox2_bc = diode
+nx3    = 64
+x3min  = 0.0
+x3max  = 32.0
+ix3_bc = reflect
+ox3_bc = diode
+
+<meshblock>
+nx1  = 32
+nx2  = 32
+nx3  = 32
+
+<mesh_refinement>
+refinement         = static
+prolong_primitives = true
+
+<refined_region1>
+level = 1
+x1min = 0.0
+x1max = 16.0
+x2min = 0.0
+x2max = 16.0
+x3min = 0.0
+x3max = 16.0
+
+<time>
+evolution  = dynamic
+integrator = rk3
+cfl_number = 0.25
+nlim       = -1
+tlim       = 200
+ndiag      = 100
+
+<coord>
+general_rel = true
+m           = 1.0
+a           = 0.0
+excise      = false
+
+<mhd>
+eos         = ideal
+dyn_eos     = ideal
+dyn_error   = reset_floor
+reconstruct = ppmx
+rsolver     = hlle
+dfloor      = 1.0e-10
+tfloor      = 1.0e-8
+dthreshold  = 1.02
+gamma       = 2.0
+dyn_scratch = 1
+fofc        = true
+enforce_maximum = false
+
+<adm>
+
+<z4c>
+lapse_oplog     = 2.0
+lapse_harmonicf = 1.0
+lapse_harmonic  = 0.0
+lapse_advect    = 1.0
+shift_eta       = 1.4
+shift_advect    = 1.0
+diss            = 0.5
+chi_div_floor   = 1e-05
+damp_kappa1     = 0.02
+damp_kappa2     = 0.0
+
+<problem>
+rhoc        = 0.007993
+kappa       = 100.0
+npoints     = 10000.0
+dr          = 1e-3
+isotropic   = true
+b_norm      = 0.0
+pcut        = 1e-6
+magindex    = 1
+user_hist   = true
+v_pert      = 0.05
+
+<output1>
+file_type   = hst
+dt          = 0.25
+data_format = %20.15e
+
+<output2>
+file_type   = bin
+variable    = mhd_w
+dt          = 25.0
+slice_x3    = 0.0
+
+<output3>
+file_type   = bin
+variable    = z4c
+dt          = 25.0
+slice_x3    = 0.0

@@ -1,0 +1,6 @@
+# AthenaK's input parser REJECTS CRLF, and Git-bash will not run a CRLF script. This checkout
+# has core.autocrlf = true, so without these rules a Windows checkout would silently rewrite
+# every .athinput to CRLF and none of them would parse. Pinned to LF, scoped to this subtree so
+# the rest of the repo keeps its existing behaviour.
+*.athinput text eol=lf
+*.sh       text eol=lf

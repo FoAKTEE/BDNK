@@ -1,0 +1,128 @@
+# p1a_collapse_eps0003_K64_L2 - p1a with 2 level(s) of static refinement on the centre.
+# The unrefined 64^3 octant run collapsed this STABLE-branch star (rho x25.6, alpha_min 0.040)
+# and then lost positive-definiteness of the 3-metric at the innermost cells (detg = -59849),
+# while DynGR1D says it merely oscillates. This run halves the central cell size 2 time(s),
+# dx_centre = 0.0625, to decide whether that collapse is physical or is under-resolution.
+# AthenaK does not subcycle, so dt follows the finest level; tlim is cut to 150, which still
+# covers the window where the unrefined run had reached alpha_min = 0.11 (t = 119).
+<comment>
+problem  = p1a collapse, 2 level(s) of centre refinement (dx_centre = 0.0625)
+
+<job>
+basename = tov
+
+<mesh>
+nghost = 4
+nx1    = 64
+x1min  = 0.0
+x1max  = 16.0
+ix1_bc = reflect
+ox1_bc = diode
+nx2    = 64
+x2min  = 0.0
+x2max  = 16.0
+ix2_bc = reflect
+ox2_bc = diode
+nx3    = 64
+x3min  = 0.0
+x3max  = 16.0
+ix3_bc = reflect
+ox3_bc = diode
+
+<meshblock>
+nx1  = 16
+nx2  = 16
+nx3  = 16
+
+<mesh_refinement>
+refinement         = static
+prolong_primitives = true
+
+<refined_region1>
+level = 1
+x1min = 0.0
+x1max = 4.0
+x2min = 0.0
+x2max = 4.0
+x3min = 0.0
+x3max = 4.0
+
+<refined_region2>
+level = 2
+x1min = 0.0
+x1max = 2.0
+x2min = 0.0
+x2max = 2.0
+x3min = 0.0
+x3max = 2.0
+
+<time>
+evolution  = dynamic
+integrator = rk3
+cfl_number = 0.25
+nlim       = -1
+tlim       = 150
+ndiag      = 100
+
+<coord>
+general_rel = true
+m           = 1.0
+a           = 0.0
+excise      = false
+
+<mhd>
+eos         = ideal
+dyn_eos     = ideal
+dyn_error   = reset_floor
+reconstruct = ppmx
+rsolver     = hlle
+dfloor      = 1.0e-10
+tfloor      = 1.0e-8
+dthreshold  = 1.02
+gamma       = 2.0
+dyn_scratch = 1
+fofc        = true
+enforce_maximum = false
+
+<adm>
+
+<z4c>
+lapse_oplog     = 2.0
+lapse_harmonicf = 1.0
+lapse_harmonic  = 0.0
+lapse_advect    = 1.0
+shift_eta       = 1.4
+shift_advect    = 1.0
+diss            = 0.5
+chi_div_floor   = 1e-05
+damp_kappa1     = 0.02
+damp_kappa2     = 0.0
+
+<problem>
+rhoc        = 0.0024162
+kappa       = 100.0
+npoints     = 10000.0
+dr          = 1e-3
+isotropic   = true
+b_norm      = 0.0
+pcut        = 1e-6
+magindex    = 1
+user_hist   = true
+v_pert      = -0.03
+
+<output1>
+file_type   = hst
+dt          = 0.25
+data_format = %20.15e
+
+<output2>
+file_type   = bin
+variable    = mhd_w
+dt          = 25.0
+slice_x3    = 0.0
+
+<output3>
+file_type   = bin
+variable    = z4c
+dt          = 25.0
+slice_x3    = 0.0
