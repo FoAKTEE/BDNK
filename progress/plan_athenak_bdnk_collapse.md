@@ -165,6 +165,46 @@ The cross-code gate before any BDNK physics.
 > would cost. Verified controlled: identical mesh resolution on the star, identical dt, and
 > rho_c(0) and alpha_min(0) bit-for-bit identical to the [0,16] run.
 >
+> **Result 2026-09-24 — the box fix works; its refinement interface then fails at t = 221.5.**
+> `p1b_migration_font_box32` (domain [0,32], one static level back over [0,16], identical star,
+> cell size and dt) was run to a target of t = 300. Baryon mass, at matched times:
+>
+> | t | box32 | original [0,16] |
+> |---|---|---|
+> | 100 | -1.3e-6 | -4.5e-3 |
+> | 150 | -4.7e-6 | -8.1e-3 |
+> | 200 | -5.5e-6 | -8.0e-3 |
+>
+> The loss is gone — a factor ~1450 at t = 200 — which confirms the diagnosis above: the mass left
+> through the diode boundary. The run is also bit-deterministic at fixed thread count: 667
+> samples identical to an earlier copy killed at t = 166.5. The density trajectory tracks the
+> original to 1-1.5% through t ~ 190, then drifts in phase (9-13% by t = 210-220), as it should
+> for a star that has kept mass the original lost.
+>
+> **Then a NEW failure, unrelated to the star: a Z4c blow-up at the static-refinement interface.**
+> First NaN just after t = 219, last physical sample t = 221.5, at (9.375, 9.375, 15.875) — the
+> last fine cell before the fine/coarse boundary at z = 16, not the centre. The spacetime is what
+> failed: lapse -2.35, psi^4 = -25.0, g_zz = -417, K_zz ~ -1.2e13, with beta^z = 3.67 while
+> beta^x, beta^y ~ 1e-3. It was sudden and local: the global H and C norms were flat right up to
+> it (H ~ 5e-5, C ~ 2e-3). The original [0,16] run had no refinement interface and ran cleanly
+> to t = 800, so enlarging the box through SMR traded the boundary outflow for an interface
+> instability.
+>
+> Consequence: the t = 200-300 window, where the original lost most of its mass (0.8% -> 7.6%),
+> was NOT reached. The conclusion that the loss is fixed does not depend on it — that loss needs
+> the envelope to reach the domain boundary, which box32 removes by construction — but the
+> migration PERIOD with the mass conserved, the comparison the fix was for, is still unmeasured.
+> Options: a uniform [0,32] at 128^3 (no interface, 8x the cost, cluster-scale); a uniform
+> [0,32] at 64^3 (no interface, same cost, but half the resolution on the star); or stabilising
+> the interface (more Kreiss-Oliger dissipation, stronger shift damping, or moving it outward).
+>
+> **In progress:** the uniform 64^3 control, `p1b_migration_font_box32_uni64`, started
+> 2026-09-24 15:10, to t = 300. It answers whether the interface was the culprit (does it
+> survive past t = 221.5?) and whether the outflow diagnosis holds with no interface at all (is
+> mass conserved?). It cannot give the period: at dx = 0.5 its initial central density is
+> already 11% below exact (7.099e-3 vs 7.993e-3, against 3% at dx = 0.25), so its resolution
+> differs from both runs it is compared with. Result to be recorded here.
+>
 > **Phase-1 status: the VERDICT half passes on both Font setups; the QUANTITATIVE half fails.**
 > Nothing in this phase is converged to the few percent the gate asks for, and the apparent
 > exceptions (the coarse collapse run's 4% proper-time agreement) did not survive refinement.

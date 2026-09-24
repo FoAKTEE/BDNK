@@ -1,0 +1,106 @@
+# p1b_migration_font_box32_uni64 - uniform-grid control for box32: [0,32], 64^3, NO refinement interface.
+# box32 cured the 13.3% mass loss but blew up at t = 221.5 at its fine/coarse interface z = 16
+# (lapse -2.35, psi^4 = -25, K_zz ~ -1e13; global constraint norms flat until then). The
+# original [0,16] run has no interface and ran cleanly to t = 800. This keeps the doubled domain
+# and removes the interface; the price is dx = 0.5 on the star (~8.5 cells across R_iso = 4.27).
+# Diagnostic only: it tests the interface and the outflow diagnosis, NOT the period, because the
+# resolution differs from both runs it is compared with. dt doubles with dx: 2400 cycles to 300.
+<comment>
+problem  = Font 2002 migration, +0.05 kick, UNIFORM [0,32] at 64^3 (dx = 0.5), no refinement
+
+<job>
+basename = tov
+
+<mesh>
+nghost = 4
+nx1    = 64
+x1min  = 0.0
+x1max  = 32.0
+ix1_bc = reflect
+ox1_bc = diode
+nx2    = 64
+x2min  = 0.0
+x2max  = 32.0
+ix2_bc = reflect
+ox2_bc = diode
+nx3    = 64
+x3min  = 0.0
+x3max  = 32.0
+ix3_bc = reflect
+ox3_bc = diode
+
+<meshblock>
+nx1  = 64
+nx2  = 64
+nx3  = 64
+
+<time>
+evolution  = dynamic
+integrator = rk3
+cfl_number = 0.25
+nlim       = -1
+tlim       = 300
+ndiag      = 100
+
+<coord>
+general_rel = true
+m           = 1.0
+a           = 0.0
+excise      = false
+
+<mhd>
+eos         = ideal
+dyn_eos     = ideal
+dyn_error   = reset_floor
+reconstruct = ppmx
+rsolver     = hlle
+dfloor      = 1.0e-10
+tfloor      = 1.0e-8
+dthreshold  = 1.02
+gamma       = 2.0
+dyn_scratch = 1
+fofc        = true
+enforce_maximum = false
+
+<adm>
+
+<z4c>
+lapse_oplog     = 2.0
+lapse_harmonicf = 1.0
+lapse_harmonic  = 0.0
+lapse_advect    = 1.0
+shift_eta       = 1.4
+shift_advect    = 1.0
+diss            = 0.5
+chi_div_floor   = 1e-05
+damp_kappa1     = 0.02
+damp_kappa2     = 0.0
+
+<problem>
+rhoc        = 0.007993
+kappa       = 100.0
+npoints     = 10000.0
+dr          = 1e-3
+isotropic   = true
+b_norm      = 0.0
+pcut        = 1e-6
+magindex    = 1
+user_hist   = true
+v_pert      = 0.05
+
+<output1>
+file_type   = hst
+dt          = 0.25
+data_format = %20.15e
+
+<output2>
+file_type   = bin
+variable    = mhd_w
+dt          = 25.0
+slice_x3    = 0.0
+
+<output3>
+file_type   = bin
+variable    = z4c
+dt          = 25.0
+slice_x3    = 0.0

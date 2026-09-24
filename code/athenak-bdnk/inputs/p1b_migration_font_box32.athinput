@@ -7,9 +7,11 @@
 # cell size (0.25) and the same dt, at 1.9x the cells rather than the 8x a uniform 128^3 costs.
 # MeshBlocks are 32^3, not 16^3: with nghost = 4 a 16^3 block is 70% ghost zones, which cost
 # 4.4x the original single-block run instead of the 1.9x the cell count implies. tlim = 500
-# tlim = 200 reaches tau ~ 150, past t ~ 100 where the [0,16] run's envelope first touched
-# the boundary and began losing mass (0.8% by t = 200, 13.3% by t = 800). That tests the
-# diagnosis; it is too short to measure the radial period, which needs tau ~ 370.
+# tlim = 300 covers BOTH of the [0,16] run's loss events: the first when its envelope touched
+# the boundary at t ~ 100 (0.8% lost by t = 125, then flat), and the second, far larger one
+# between t = 200 and 300 (0.8% -> 7.6%). A run to t = 166.5 already showed the first is gone
+# (-5.3e-6 against -8.0e-3); this tests the second. AthenaK is bit-deterministic at fixed
+# thread count, so t <= 166.5 reproduces that partial run exactly.
 
 <comment>
 problem  = Font 2002 migration, +0.05 kick, doubled box [0,32] + one level on [0,16]
@@ -58,7 +60,7 @@ evolution  = dynamic
 integrator = rk3
 cfl_number = 0.25
 nlim       = -1
-tlim       = 200
+tlim       = 300
 ndiag      = 100
 
 <coord>
